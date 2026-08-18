@@ -1,0 +1,17 @@
+# Resource Monitor - Python dependencies
+
+# GUI
+PySide6>=6.7,<7
+
+# System monitoring
+psutil>=6.0,<8
+
+# Real-time graphs2
+pyqtgraph>=0.13,<1
+
+# Charts / static exports
+matplotlib>=3.9,<4
+numpy>=1.26,<3
+
+# NVIDIA GPU telemetry (optional, required for NVIDIA GPU metrics)
+nvidia-ml-py>=12.0,<14
