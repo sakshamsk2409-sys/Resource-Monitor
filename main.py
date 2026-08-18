@@ -89,7 +89,10 @@ class MainWindow(QMainWindow):
             10
         )
 
-        # Logo
+        # =================================================
+        # LOGO
+        # =================================================
+
         logo = QLabel(
             "SYSTEM\nRESOURCE MONITOR"
         )
@@ -110,7 +113,10 @@ class MainWindow(QMainWindow):
             30
         )
 
-        # Navigation buttons
+        # =================================================
+        # NAVIGATION BUTTONS
+        # =================================================
+
         self.dashboard_button = QPushButton(
             "Dashboard"
         )
@@ -146,7 +152,10 @@ class MainWindow(QMainWindow):
 
         sidebar_layout.addStretch()
 
-        # Status
+        # =================================================
+        # STATUS
+        # =================================================
+
         status = QLabel(
             "●  MONITORING ACTIVE"
         )
@@ -165,12 +174,18 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
 
-        # Your pages
+        # =================================================
+        # YOUR PAGES
+        # =================================================
+
         self.dashboard_page = DashboardPage()
 
         self.memory_page = MemoryPage()
 
-        # Temporary pages for teammates
+        # =================================================
+        # TEMPORARY TEAMMATE PAGES
+        # =================================================
+
         self.system_page = self.create_placeholder(
             "System Configuration"
         )
@@ -179,7 +194,10 @@ class MainWindow(QMainWindow):
             "GPU Performance"
         )
 
-        # Add pages
+        # =================================================
+        # ADD PAGES
+        # =================================================
+
         self.pages.addWidget(
             self.dashboard_page
         )
@@ -197,7 +215,7 @@ class MainWindow(QMainWindow):
         )
 
         # =================================================
-        # NAVIGATION
+        # NAVIGATION CONNECTIONS
         # =================================================
 
         self.dashboard_button.clicked.connect(
@@ -216,7 +234,10 @@ class MainWindow(QMainWindow):
             lambda: self.change_page(3)
         )
 
-        # Add sidebar + pages
+        # =================================================
+        # ADD SIDEBAR + PAGES
+        # =================================================
+
         main_layout.addWidget(
             sidebar
         )
@@ -225,14 +246,22 @@ class MainWindow(QMainWindow):
             self.pages
         )
 
-        # Start on Dashboard
-        self.change_page(0)
+        # =================================================
+        # START ON DASHBOARD
+        # =================================================
+
+        self.change_page(
+            0
+        )
 
     # =================================================
     # PAGE CHANGE
     # =================================================
 
-    def change_page(self, index):
+    def change_page(
+        self,
+        index
+    ):
 
         self.pages.setCurrentIndex(
             index
@@ -245,7 +274,10 @@ class MainWindow(QMainWindow):
             self.gpu_button,
         ]
 
-        # Remove active state
+        # -------------------------------------------------
+        # REMOVE ACTIVE STATE
+        # -------------------------------------------------
+
         for button in buttons:
 
             button.setProperty(
@@ -261,7 +293,10 @@ class MainWindow(QMainWindow):
                 button
             )
 
-        # Add active state
+        # -------------------------------------------------
+        # SET ACTIVE STATE
+        # -------------------------------------------------
+
         active_button = buttons[index]
 
         active_button.setProperty(
@@ -281,7 +316,10 @@ class MainWindow(QMainWindow):
     # PLACEHOLDER PAGE
     # =================================================
 
-    def create_placeholder(self, title):
+    def create_placeholder(
+        self,
+        title
+    ):
 
         page = QWidget()
 
@@ -329,147 +367,230 @@ if __name__ == "__main__":
 
     app.setStyleSheet("""
 
+        /* =================================================
+           MAIN WINDOW
+           ================================================= */
+
         QMainWindow {
-            background-color: #0d1117;
+            background-color: #080d14;
         }
 
         QWidget {
-            background-color: #0d1117;
+            background-color: #080d14;
             color: #e6edf3;
             font-family: "Segoe UI";
         }
 
-        /* SIDEBAR */
+
+        /* =================================================
+           SIDEBAR
+           ================================================= */
 
         #sidebar {
-            background-color: #111820;
-            border-right: 1px solid #27313d;
+            background-color: #0b121c;
+            border-right: 1px solid #1c2b3d;
         }
+
+
+        /* =================================================
+           LOGO
+           ================================================= */
 
         #logo {
             color: #ffffff;
             font-size: 17px;
             font-weight: bold;
+            background: transparent;
+            border: none;
         }
 
-        /* NAVIGATION */
+
+        /* =================================================
+           NAVIGATION
+           ================================================= */
 
         #nav_button {
             background-color: transparent;
-            color: #9da7b3;
+            color: #7f91a8;
             border: none;
-            border-radius: 8px;
+            border-radius: 9px;
             padding: 13px;
             text-align: left;
             font-size: 14px;
         }
 
         #nav_button:hover {
-            background-color: #1b2530;
+            background-color: #142235;
             color: #ffffff;
         }
 
         #nav_button[active="true"] {
-            background-color: #243241;
+            background-color: #172b40;
             color: #ffffff;
             font-weight: bold;
+            border-left: 3px solid #00aaff;
         }
 
-        /* STATUS */
+
+        /* =================================================
+           STATUS
+           ================================================= */
 
         #status {
-            color: #55d187;
+            color: #39ff88;
             font-size: 12px;
             padding: 8px;
+            background: transparent;
+            border: none;
         }
 
-        /* PAGE */
+
+        /* =================================================
+           PAGE TITLE
+           ================================================= */
 
         #page_title {
             font-size: 28px;
             font-weight: bold;
             color: #ffffff;
+            background: transparent;
+            border: none;
+        }
+
+        #dashboard_subtitle {
+            color: #6e829b;
+            font-size: 13px;
+            background: transparent;
+            border: none;
         }
 
         #subtitle {
-            color: #8b949e;
-            font-size: 14px;
-        }
-
-        /* CARDS */
-
-        #metric_card {
-            background-color: #161d26;
-            border: 1px solid #27313d;
-            border-radius: 12px;
-            min-height: 120px;
-        }
-
-        #card_title {
-            color: #8b949e;
+            color: #6e829b;
             font-size: 13px;
-            font-weight: bold;
+            background: transparent;
+            border: none;
         }
 
-        #card_value {
+
+        /* =================================================
+           CONTROLS
+           ================================================= */
+
+        #controls_frame {
+            background-color: #0d1520;
+            border: 1px solid #1d3045;
+            border-radius: 8px;
+        }
+
+        #control_label {
+            color: #7f91a8;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            background: transparent;
+            border: none;
+        }
+
+
+        /* =================================================
+           COMBO BOX
+           ================================================= */
+
+        QComboBox {
+            background-color: #101a27;
+            border: 1px solid #263c54;
+            border-radius: 6px;
+            padding: 7px 10px;
+            color: #dce7f2;
+            min-width: 125px;
+        }
+
+        QComboBox:hover {
+            border: 1px solid #00aaff;
+        }
+
+        QComboBox QAbstractItemView {
+            background-color: #101a27;
             color: #ffffff;
-            font-size: 30px;
+            selection-background-color: #173653;
+        }
+
+
+        /* =================================================
+           TELEMETRY GRAPH
+           ================================================= */
+
+        #telemetry_frame {
+            background-color: #0b111a;
+            border: 1px solid #16405c;
+            border-radius: 14px;
+        }
+
+        #graph_title {
+            color: #ffffff;
+            font-size: 14px;
             font-weight: bold;
+            background: transparent;
+            border: none;
         }
 
-        #card_description {
-            color: #6e7781;
-            font-size: 12px;
+        #live_label {
+            color: #39ff88;
+            font-size: 11px;
+            font-weight: bold;
+            background: transparent;
+            border: none;
         }
 
-        /* GRAPH */
 
-        #graph_container {
-            background-color: #161d26;
-            border: 1px solid #27313d;
-            border-radius: 12px;
-        }
+        /* =================================================
+           SECTION TITLES
+           ================================================= */
 
         #section_title {
             color: #ffffff;
             font-size: 14px;
             font-weight: bold;
+            background: transparent;
+            border: none;
         }
 
-        /* MEMORY */
+
+        /* =================================================
+           MEMORY
+           ================================================= */
+
+        #graph_container {
+            background-color: #0b111a;
+            border: 1px solid #1c3045;
+            border-radius: 12px;
+        }
 
         #memory_value {
             color: #ffffff;
             font-size: 18px;
             padding: 10px;
-        }
-
-        /* DROPDOWN */
-
-        QComboBox {
-            background-color: #161d26;
-            border: 1px solid #27313d;
-            border-radius: 6px;
-            padding: 7px 10px;
-            color: #ffffff;
-            min-width: 120px;
-        }
-
-        QComboBox:hover {
-            border: 1px solid #4a5562;
-        }
-
-        QComboBox QAbstractItemView {
-            background-color: #161d26;
-            color: #ffffff;
-            selection-background-color: #243241;
+            background: transparent;
+            border: none;
         }
 
     """)
 
+    # =================================================
+    # CREATE WINDOW
+    # =================================================
+
     window = MainWindow()
 
+    # =================================================
+    # SHOW WINDOW
+    # =================================================
+
     window.show()
+
+    # =================================================
+    # START APPLICATION
+    # =================================================
 
     sys.exit(
         app.exec()
