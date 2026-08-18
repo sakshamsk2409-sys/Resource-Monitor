@@ -179,3 +179,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Application-generated telemetry files
+hardware_log_*.csv
+hardware_log_*_report.html

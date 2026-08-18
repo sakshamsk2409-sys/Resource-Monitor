@@ -1,0 +1,6 @@
+customtkinter>=5.2
+matplotlib>=3.8
+pandas>=2.1
+plotly>=5.18
+pythonnet>=3.0
+windows-toasts>=1.1
