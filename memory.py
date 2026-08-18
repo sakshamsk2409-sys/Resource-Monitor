@@ -20,25 +20,13 @@ class MemoryPage(QWidget):
 
         super().__init__()
 
-        # =================================================
-        # HISTORY
-        # =================================================
-
         self.max_points = 60
 
         self.ram_history = [
             0
         ] * self.max_points
 
-        # =================================================
-        # UI
-        # =================================================
-
         self.setup_ui()
-
-        # =================================================
-        # TIMER
-        # =================================================
 
         self.timer = QTimer(
             self
@@ -52,12 +40,7 @@ class MemoryPage(QWidget):
             1000
         )
 
-        # Initial update
         self.update_memory()
-
-    # =====================================================
-    # UI
-    # =====================================================
 
     def setup_ui(self):
 
@@ -75,10 +58,6 @@ class MemoryPage(QWidget):
         layout.setSpacing(
             18
         )
-
-        # =================================================
-        # HEADER
-        # =================================================
 
         title = QLabel(
             "Memory"
@@ -104,19 +83,11 @@ class MemoryPage(QWidget):
             subtitle
         )
 
-        # =================================================
-        # TOP SECTION
-        # =================================================
-
         top_section = QHBoxLayout()
 
         top_section.setSpacing(
             18
         )
-
-        # =================================================
-        # DONUT
-        # =================================================
 
         donut_frame = QFrame()
 
@@ -177,10 +148,6 @@ class MemoryPage(QWidget):
             self.donut
         )
 
-        # =================================================
-        # MEMORY INFORMATION
-        # =================================================
-
         info_frame = QFrame()
 
         info_frame.setObjectName(
@@ -238,10 +205,6 @@ class MemoryPage(QWidget):
 
         info_layout.addStretch()
 
-        # =================================================
-        # ADD TOP SECTION
-        # =================================================
-
         top_section.addWidget(
             donut_frame,
             1
@@ -256,10 +219,6 @@ class MemoryPage(QWidget):
             top_section,
             1
         )
-
-        # =================================================
-        # REAL-TIME RAM GRAPH
-        # =================================================
 
         graph_frame = QFrame()
 
@@ -328,17 +287,9 @@ class MemoryPage(QWidget):
             1
         )
 
-    # =====================================================
-    # UPDATE MEMORY
-    # =====================================================
-
     def update_memory(self):
 
         memory = psutil.virtual_memory()
-
-        # =================================================
-        # CONVERT BYTES → GB
-        # =================================================
 
         total = (
             memory.total
@@ -357,10 +308,6 @@ class MemoryPage(QWidget):
 
         percent = memory.percent
 
-        # =================================================
-        # UPDATE LABELS
-        # =================================================
-
         self.total_label.setText(
             f"Total: {total:.2f} GB"
         )
@@ -377,10 +324,6 @@ class MemoryPage(QWidget):
             f"Usage: {percent:.1f}%"
         )
 
-        # =================================================
-        # UPDATE HISTORY
-        # =================================================
-
         self.ram_history.append(
             percent
         )
@@ -391,25 +334,13 @@ class MemoryPage(QWidget):
             ]
         )
 
-        # =================================================
-        # UPDATE GRAPH
-        # =================================================
-
         self.ram_curve.setData(
             self.ram_history
         )
 
-        # =================================================
-        # UPDATE DONUT
-        # =================================================
-
         self.draw_donut(
             percent
         )
-
-    # =====================================================
-    # DONUT CHART
-    # =====================================================
 
     def draw_donut(
         self,
@@ -418,7 +349,6 @@ class MemoryPage(QWidget):
 
         self.donut.clear()
 
-        # Clamp value between 0 and 100
         used_percent = max(
             0,
             min(
@@ -426,10 +356,6 @@ class MemoryPage(QWidget):
                 used_percent
             )
         )
-
-        # =================================================
-        # BACKGROUND CIRCLE
-        # =================================================
 
         background = (
             pg.QtWidgets.QGraphicsEllipseItem(
@@ -453,10 +379,6 @@ class MemoryPage(QWidget):
             background
         )
 
-        # =================================================
-        # USED RAM ARC
-        # =================================================
-
         used_arc = (
             pg.QtWidgets.QGraphicsEllipseItem(
                 -80,
@@ -475,7 +397,6 @@ class MemoryPage(QWidget):
             )
         )
 
-        # Qt angles use 1/16 degree
         start_angle = 90 * 16
 
         span_angle = (
@@ -496,10 +417,6 @@ class MemoryPage(QWidget):
         self.donut.addItem(
             used_arc
         )
-
-        # =================================================
-        # CENTER TEXT
-        # =================================================
 
         text = pg.TextItem(
             f"{used_percent:.1f}%",
@@ -525,10 +442,6 @@ class MemoryPage(QWidget):
         self.donut.addItem(
             text
         )
-
-    # =====================================================
-    # CLEANUP
-    # =====================================================
 
     def closeEvent(
         self,
