@@ -1,13 +1,7 @@
 import psutil
-
 import pyqtgraph as pg
 
-from PySide6.QtCore import (
-    QTimer,
-    Qt,
-    QRectF,
-)
-
+from PySide6.QtCore import QTimer, Qt, QRectF
 from PySide6.QtGui import (
     QPainter,
     QColor,
@@ -15,7 +9,6 @@ from PySide6.QtGui import (
     QBrush,
     QFont,
 )
-
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -31,21 +24,21 @@ from PySide6.QtWidgets import (
 # =========================================================
 
 APP_COLORS = [
-    "#00aaff",
-    "#b35cff",
-    "#39ff88",
-    "#ff6b2c",
-    "#ffd23f",
-    "#ff4f81",
-    "#00d9ff",
-    "#8b5cf6",
-    "#14b8a6",
-    "#f97316",
+    "#e53935",   # Red
+    "#ff8f00",   # Orange
+    "#8bc34a",   # Green
+    "#ab47bc",   # Purple
+    "#fdd835",   # Yellow
+    "#ef5350",   # Light red
+    "#26a69a",   # Teal
+    "#ec407a",   # Pink
+    "#7cb342",   # Lime
+    "#ffa726",   # Amber
 ]
 
 
 # =========================================================
-# DONUT CHART WIDGET
+# MEMORY DONUT
 # =========================================================
 
 class MemoryDonut(QWidget):
@@ -56,9 +49,8 @@ class MemoryDonut(QWidget):
 
         self.data = []
 
-        self.setMinimumHeight(330)
-
-        self.setMinimumWidth(420)
+        self.setMinimumHeight(300)
+        self.setMinimumWidth(400)
 
         self.setAttribute(
             Qt.WA_TranslucentBackground
@@ -75,7 +67,7 @@ class MemoryDonut(QWidget):
         self.update()
 
     # =====================================================
-    # PAINT
+    # PAINT DONUT
     # =====================================================
 
     def paintEvent(self, event):
@@ -92,14 +84,14 @@ class MemoryDonut(QWidget):
         center_x = width / 2
         center_y = height / 2
 
-        # -------------------------------------------------
-        # CHART SIZE
-        # -------------------------------------------------
+        # =================================================
+        # DONUT SIZE
+        # =================================================
 
         diameter = min(
             width,
             height
-        ) * 0.58
+        ) * 0.60
 
         rect = QRectF(
             center_x - diameter / 2,
@@ -108,16 +100,16 @@ class MemoryDonut(QWidget):
             diameter
         )
 
-        # -------------------------------------------------
+        # =================================================
         # BACKGROUND RING
-        # -------------------------------------------------
+        # =================================================
 
         background_pen = QPen(
-            QColor("#1b2a3a")
+            QColor("#252525")
         )
 
         background_pen.setWidth(
-            28
+            24
         )
 
         background_pen.setCapStyle(
@@ -134,9 +126,9 @@ class MemoryDonut(QWidget):
             -360 * 16
         )
 
-        # -------------------------------------------------
-        # DRAW DATA
-        # -------------------------------------------------
+        # =================================================
+        # TOTAL PROCESS MEMORY
+        # =================================================
 
         total = sum(
             item["value"]
@@ -149,11 +141,13 @@ class MemoryDonut(QWidget):
 
             return
 
+        # =================================================
+        # DRAW APPLICATION ARCS
+        # =================================================
+
         start_angle = 90 * 16
 
-        for index, item in enumerate(
-            self.data
-        ):
+        for item in self.data:
 
             value = item["value"]
 
@@ -179,7 +173,7 @@ class MemoryDonut(QWidget):
             )
 
             pen.setWidth(
-                28
+                24
             )
 
             pen.setCapStyle(
@@ -198,12 +192,12 @@ class MemoryDonut(QWidget):
 
             start_angle += span_angle
 
-        # -------------------------------------------------
-        # CENTER CIRCLE
-        # -------------------------------------------------
+        # =================================================
+        # INNER BLACK CIRCLE
+        # =================================================
 
         inner_diameter = (
-            diameter - 56
+            diameter - 48
         )
 
         inner_rect = QRectF(
@@ -219,7 +213,7 @@ class MemoryDonut(QWidget):
 
         painter.setBrush(
             QBrush(
-                QColor("#0b111a")
+                QColor("#090909")
             )
         )
 
@@ -227,22 +221,16 @@ class MemoryDonut(QWidget):
             inner_rect
         )
 
-        # -------------------------------------------------
-        # CENTER TEXT
-        # -------------------------------------------------
-
-        used_total = sum(
-            item["value"]
-            for item in self.data
-        )
+        # =================================================
+        # CENTER VALUE
+        # =================================================
 
         used_gb = (
-            used_total
-            / (1024 ** 3)
+            total / (1024 ** 3)
         )
 
         painter.setPen(
-            QColor("#ffffff")
+            QColor("#eeeeee")
         )
 
         painter.setFont(
@@ -253,25 +241,25 @@ class MemoryDonut(QWidget):
             )
         )
 
-        total_text = (
-            f"{used_gb:.1f} GB"
-        )
-
-        total_rect = QRectF(
+        value_rect = QRectF(
             center_x - 100,
-            center_y - 20,
+            center_y - 22,
             200,
             40
         )
 
         painter.drawText(
-            total_rect,
+            value_rect,
             Qt.AlignCenter,
-            total_text
+            f"{used_gb:.1f} GB"
         )
 
+        # =================================================
+        # CENTER LABEL
+        # =================================================
+
         painter.setPen(
-            QColor("#71839a")
+            QColor("#777777")
         )
 
         painter.setFont(
@@ -283,7 +271,7 @@ class MemoryDonut(QWidget):
 
         label_rect = QRectF(
             center_x - 100,
-            center_y + 15,
+            center_y + 17,
             200,
             25
         )
@@ -308,7 +296,7 @@ class MemoryPage(QWidget):
         super().__init__()
 
         # =================================================
-        # GRAPH HISTORY
+        # RAM HISTORY
         # =================================================
 
         self.max_points = 60
@@ -318,13 +306,13 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # APPLICATION MEMORY
+        # APPLICATION SETTINGS
         # =================================================
 
         self.application_data = []
 
-        # Number of individual applications
-        # displayed in the donut.
+        # Number of individual processes/apps
+        # displayed separately.
         self.max_apps = 8
 
         # =================================================
@@ -334,7 +322,7 @@ class MemoryPage(QWidget):
         self.setup_ui()
 
         # =================================================
-        # TIMER
+        # UPDATE TIMER
         # =================================================
 
         self.timer = QTimer(
@@ -345,7 +333,6 @@ class MemoryPage(QWidget):
             self.update_memory
         )
 
-        # Update every second
         self.timer.start(
             1000
         )
@@ -354,7 +341,7 @@ class MemoryPage(QWidget):
         self.update_memory()
 
     # =====================================================
-    # UI
+    # SETUP UI
     # =====================================================
 
     def setup_ui(self):
@@ -371,7 +358,7 @@ class MemoryPage(QWidget):
         )
 
         layout.setSpacing(
-            16
+            14
         )
 
         # =================================================
@@ -409,11 +396,11 @@ class MemoryPage(QWidget):
         top_section = QHBoxLayout()
 
         top_section.setSpacing(
-            18
+            14
         )
 
         # =================================================
-        # DONUT CONTAINER
+        # DONUT PANEL
         # =================================================
 
         donut_frame = QFrame()
@@ -452,7 +439,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # APPLICATION LIST
+        # APPLICATION PANEL
         # =================================================
 
         app_frame = QFrame()
@@ -484,9 +471,9 @@ class MemoryPage(QWidget):
             app_title
         )
 
-        # -------------------------------------------------
-        # Scroll area
-        # -------------------------------------------------
+        # =================================================
+        # SCROLL AREA
+        # =================================================
 
         scroll = QScrollArea()
 
@@ -510,19 +497,37 @@ class MemoryPage(QWidget):
             }
 
             QScrollBar:vertical {
-                background: #0b111a;
+                background: #080808;
                 width: 6px;
-                border-radius: 3px;
+                border: none;
             }
 
             QScrollBar::handle:vertical {
-                background: #263c54;
-                border-radius: 3px;
+                background: #3a3a3a;
+                min-height: 25px;
+                border-radius: 2px;
+            }
+
+            QScrollBar::handle:vertical:hover {
+                background: #666666;
+            }
+
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {
+                height: 0px;
             }
             """
         )
 
         self.app_list_widget = QWidget()
+
+        self.app_list_widget.setStyleSheet(
+            """
+            QWidget {
+                background: transparent;
+            }
+            """
+        )
 
         self.app_list_layout = QVBoxLayout(
             self.app_list_widget
@@ -548,7 +553,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # ADD TOP SECTION
+        # ADD TOP PANELS
         # =================================================
 
         top_section.addWidget(
@@ -567,7 +572,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # MEMORY INFORMATION
+        # MEMORY STATISTICS
         # =================================================
 
         info_frame = QFrame()
@@ -581,10 +586,10 @@ class MemoryPage(QWidget):
         )
 
         info_layout.setContentsMargins(
-            18,
-            12,
-            18,
-            12
+            15,
+            8,
+            15,
+            8
         )
 
         self.total_label = QLabel(
@@ -603,14 +608,14 @@ class MemoryPage(QWidget):
             "USAGE: --%"
         )
 
-        information = [
+        statistics = [
             self.total_label,
             self.used_label,
             self.available_label,
             self.percent_label,
         ]
 
-        for label in information:
+        for label in statistics:
 
             label.setObjectName(
                 "memory_stat"
@@ -625,7 +630,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # REAL-TIME GRAPH
+        # RAM GRAPH PANEL
         # =================================================
 
         graph_frame = QFrame()
@@ -657,16 +662,20 @@ class MemoryPage(QWidget):
             graph_title
         )
 
+        # =================================================
+        # GRAPH
+        # =================================================
+
         self.graph = pg.PlotWidget()
 
         self.graph.setBackground(
-            "#0b111a"
+            "#050505"
         )
 
         self.graph.showGrid(
             x=True,
             y=True,
-            alpha=0.12
+            alpha=0.08
         )
 
         self.graph.setYRange(
@@ -684,35 +693,55 @@ class MemoryPage(QWidget):
             "TIME"
         )
 
+        # -------------------------------------------------
+        # AXIS STYLE
+        # -------------------------------------------------
+
         self.graph.getAxis(
             "left"
         ).setTextPen(
-            "#71839a"
+            "#686868"
         )
 
         self.graph.getAxis(
             "bottom"
         ).setTextPen(
-            "#71839a"
+            "#686868"
         )
 
-        # -------------------------------------------------
-        # RAM LINE
-        # -------------------------------------------------
+        self.graph.getAxis(
+            "left"
+        ).setPen(
+            pg.mkPen(
+                "#303030"
+            )
+        )
+
+        self.graph.getAxis(
+            "bottom"
+        ).setPen(
+            pg.mkPen(
+                "#303030"
+            )
+        )
+
+        # =================================================
+        # RAM CURVE
+        # =================================================
 
         self.ram_curve = (
             self.graph.plot(
                 self.ram_history,
                 pen=pg.mkPen(
-                    "#b35cff",
+                    "#ab47bc",
                     width=2
                 )
             )
         )
 
-        # -------------------------------------------------
+        # =================================================
         # RAM FILL
-        # -------------------------------------------------
+        # =================================================
 
         self.ram_bottom = (
             pg.PlotDataItem(
@@ -725,10 +754,10 @@ class MemoryPage(QWidget):
                 self.ram_curve,
                 self.ram_bottom,
                 brush=pg.mkBrush(
-                    179,
-                    92,
-                    255,
-                    45
+                    171,
+                    71,
+                    188,
+                    60
                 )
             )
         )
@@ -752,11 +781,11 @@ class MemoryPage(QWidget):
 
     def update_memory(self):
 
-        memory = psutil.virtual_memory()
+        # =================================================
+        # SYSTEM RAM
+        # =================================================
 
-        # =================================================
-        # SYSTEM MEMORY
-        # =================================================
+        memory = psutil.virtual_memory()
 
         total = memory.total
 
@@ -787,7 +816,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # HISTORY
+        # UPDATE HISTORY
         # =================================================
 
         self.ram_history.append(
@@ -809,7 +838,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # APPLICATION MEMORY
+        # UPDATE APPLICATION MEMORY
         # =================================================
 
         self.update_application_memory(
@@ -817,7 +846,7 @@ class MemoryPage(QWidget):
         )
 
     # =====================================================
-    # APPLICATION MEMORY
+    # GET APPLICATION MEMORY
     # =====================================================
 
     def update_application_memory(
@@ -828,7 +857,7 @@ class MemoryPage(QWidget):
         processes = {}
 
         # =================================================
-        # READ ALL RUNNING PROCESSES
+        # GET ALL RUNNING PROCESSES
         # =================================================
 
         for process in psutil.process_iter(
@@ -840,13 +869,15 @@ class MemoryPage(QWidget):
 
             try:
 
-                name = process.info[
+                name = process.info.get(
                     "name"
-                ]
+                )
 
-                memory_info = process.info[
-                    "memory_info"
-                ]
+                memory_info = (
+                    process.info.get(
+                        "memory_info"
+                    )
+                )
 
                 if not name:
                     continue
@@ -859,9 +890,9 @@ class MemoryPage(QWidget):
                 if rss <= 0:
                     continue
 
-                # -------------------------------------------------
-                # Group processes with the same name
-                # -------------------------------------------------
+                # -----------------------------------------
+                # GROUP SAME PROCESS NAMES
+                # -----------------------------------------
 
                 name = name.strip()
 
@@ -883,7 +914,7 @@ class MemoryPage(QWidget):
                 continue
 
         # =================================================
-        # SORT
+        # SORT BY MEMORY
         # =================================================
 
         sorted_processes = sorted(
@@ -902,7 +933,10 @@ class MemoryPage(QWidget):
             ]
         )
 
-        # Everything else
+        # =================================================
+        # EVERYTHING ELSE
+        # =================================================
+
         other_memory = sum(
             memory
             for name, memory
@@ -912,7 +946,7 @@ class MemoryPage(QWidget):
         )
 
         # =================================================
-        # BUILD DONUT DATA
+        # BUILD CHART DATA
         # =================================================
 
         chart_data = []
@@ -935,9 +969,9 @@ class MemoryPage(QWidget):
                 }
             )
 
-        # -------------------------------------------------
-        # OTHER PROCESSES
-        # -------------------------------------------------
+        # =================================================
+        # OTHER APPS
+        # =================================================
 
         if other_memory > 0:
 
@@ -945,12 +979,12 @@ class MemoryPage(QWidget):
                 {
                     "name": "Other Apps",
                     "value": other_memory,
-                    "color": "#344457",
+                    "color": "#3a3a3a",
                 }
             )
 
         # =================================================
-        # SAVE DATA
+        # SAVE
         # =================================================
 
         self.application_data = (
@@ -982,9 +1016,9 @@ class MemoryPage(QWidget):
         data
     ):
 
-        # -------------------------------------------------
-        # CLEAR OLD ITEMS
-        # -------------------------------------------------
+        # =================================================
+        # CLEAR OLD ROWS
+        # =================================================
 
         while (
             self.app_list_layout.count()
@@ -1003,9 +1037,9 @@ class MemoryPage(QWidget):
 
                 widget.deleteLater()
 
-        # -------------------------------------------------
-        # TOTAL
-        # -------------------------------------------------
+        # =================================================
+        # TOTAL PROCESS MEMORY
+        # =================================================
 
         total = sum(
             item["value"]
@@ -1015,9 +1049,9 @@ class MemoryPage(QWidget):
         if total <= 0:
             return
 
-        # -------------------------------------------------
-        # CREATE ROW FOR EACH APP
-        # -------------------------------------------------
+        # =================================================
+        # CREATE APPLICATION ROWS
+        # =================================================
 
         for item in data:
 
@@ -1042,6 +1076,10 @@ class MemoryPage(QWidget):
                 / (1024 ** 3)
             )
 
+            # =================================================
+            # ROW
+            # =================================================
+
             row = QFrame()
 
             row.setObjectName(
@@ -1053,33 +1091,33 @@ class MemoryPage(QWidget):
             )
 
             row_layout.setContentsMargins(
-                8,
-                6,
-                8,
-                6
+                7,
+                5,
+                7,
+                5
             )
 
             row_layout.setSpacing(
                 8
             )
 
-            # -------------------------------------------------
-            # COLOR INDICATOR
-            # -------------------------------------------------
+            # =================================================
+            # COLOR MARKER
+            # =================================================
 
             color_box = QFrame()
 
             color_box.setFixedSize(
-                8,
-                28
+                6,
+                26
             )
 
             color_box.setStyleSheet(
                 f"""
                 QFrame {{
                     background-color: {color};
-                    border-radius: 4px;
                     border: none;
+                    border-radius: 1px;
                 }}
                 """
             )
@@ -1088,9 +1126,9 @@ class MemoryPage(QWidget):
                 color_box
             )
 
-            # -------------------------------------------------
-            # NAME
-            # -------------------------------------------------
+            # =================================================
+            # APPLICATION NAME
+            # =================================================
 
             name_label = QLabel(
                 name
@@ -1100,14 +1138,18 @@ class MemoryPage(QWidget):
                 "app_name"
             )
 
+            name_label.setToolTip(
+                name
+            )
+
             row_layout.addWidget(
                 name_label,
                 1
             )
 
-            # -------------------------------------------------
+            # =================================================
             # MEMORY
-            # -------------------------------------------------
+            # =================================================
 
             memory_label = QLabel(
                 f"{gb:.2f} GB"
@@ -1125,9 +1167,9 @@ class MemoryPage(QWidget):
                 memory_label
             )
 
-            # -------------------------------------------------
+            # =================================================
             # PERCENTAGE
-            # -------------------------------------------------
+            # =================================================
 
             percent_label = QLabel(
                 f"{percentage:.1f}%"
@@ -1148,6 +1190,10 @@ class MemoryPage(QWidget):
             self.app_list_layout.addWidget(
                 row
             )
+
+        # =================================================
+        # EMPTY SPACE
+        # =================================================
 
         self.app_list_layout.addStretch()
 

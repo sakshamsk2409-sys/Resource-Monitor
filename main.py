@@ -234,9 +234,6 @@ class MainWindow(QMainWindow):
             lambda: self.change_page(3)
         )
 
-        # =================================================
-        # ADD SIDEBAR + PAGES
-        # =================================================
 
         main_layout.addWidget(
             sidebar
@@ -367,230 +364,292 @@ if __name__ == "__main__":
 
     app.setStyleSheet("""
 
-        /* =================================================
-           MAIN WINDOW
-           ================================================= */
+    /* =====================================================
+       GLOBAL
+       ===================================================== */
 
-        QMainWindow {
-            background-color: #080d14;
-        }
+    QMainWindow {
+        background-color: #050505;
+    }
 
-        QWidget {
-            background-color: #080d14;
-            color: #e6edf3;
-            font-family: "Segoe UI";
-        }
-
-
-        /* =================================================
-           SIDEBAR
-           ================================================= */
-
-        #sidebar {
-            background-color: #0b121c;
-            border-right: 1px solid #1c2b3d;
-        }
+    QWidget {
+        background-color: #050505;
+        color: #d8d8d8;
+        font-family: "Segoe UI";
+    }
 
 
-        /* =================================================
-           LOGO
-           ================================================= */
+    /* =====================================================
+       SIDEBAR
+       ===================================================== */
 
-        #logo {
-            color: #ffffff;
-            font-size: 17px;
-            font-weight: bold;
-            background: transparent;
-            border: none;
-        }
+    #sidebar {
+        background-color: #080808;
+        border-right: 1px solid #242424;
+    }
 
+    #logo {
+        color: #eeeeee;
+        font-size: 16px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+    }
 
-        /* =================================================
-           NAVIGATION
-           ================================================= */
+    #nav_button {
+        background-color: transparent;
+        color: #777777;
+        border: none;
+        border-radius: 2px;
+        padding: 12px;
+        text-align: left;
+        font-size: 13px;
+    }
 
-        #nav_button {
-            background-color: transparent;
-            color: #7f91a8;
-            border: none;
-            border-radius: 9px;
-            padding: 13px;
-            text-align: left;
-            font-size: 14px;
-        }
+    #nav_button:hover {
+        background-color: #151515;
+        color: #dddddd;
+    }
 
-        #nav_button:hover {
-            background-color: #142235;
-            color: #ffffff;
-        }
+    #nav_button[active="true"] {
+        background-color: #1a0b0b;
+        color: #ffffff;
+        border-left: 3px solid #d71920;
+        font-weight: bold;
+    }
 
-        #nav_button[active="true"] {
-            background-color: #172b40;
-            color: #ffffff;
-            font-weight: bold;
-            border-left: 3px solid #00aaff;
-        }
-
-
-        /* =================================================
-           STATUS
-           ================================================= */
-
-        #status {
-            color: #39ff88;
-            font-size: 12px;
-            padding: 8px;
-            background: transparent;
-            border: none;
-        }
+    #status {
+        color: #55d66f;
+        font-size: 11px;
+        padding: 8px;
+        background: transparent;
+        border: none;
+    }
 
 
-        /* =================================================
-           PAGE TITLE
-           ================================================= */
+    /* =====================================================
+       PAGE
+       ===================================================== */
 
-        #page_title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #ffffff;
-            background: transparent;
-            border: none;
-        }
+    #page_title {
+        color: #f0f0f0;
+        font-size: 26px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+    }
 
-        #dashboard_subtitle {
-            color: #6e829b;
-            font-size: 13px;
-            background: transparent;
-            border: none;
-        }
+    #subtitle {
+        color: #686868;
+        font-size: 12px;
+        background: transparent;
+        border: none;
+    }
 
-        #subtitle {
-            color: #6e829b;
-            font-size: 13px;
-            background: transparent;
-            border: none;
-        }
-
-
-        /* =================================================
-           CONTROLS
-           ================================================= */
-
-        #controls_frame {
-            background-color: #0d1520;
-            border: 1px solid #1d3045;
-            border-radius: 8px;
-        }
-
-        #control_label {
-            color: #7f91a8;
-            font-size: 10px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            background: transparent;
-            border: none;
-        }
+    #dashboard_subtitle {
+        color: #686868;
+        font-size: 12px;
+        background: transparent;
+        border: none;
+    }
 
 
-        /* =================================================
-           COMBO BOX
-           ================================================= */
+    /* =====================================================
+       MEMORY PANELS
+       ===================================================== */
 
-        QComboBox {
-            background-color: #101a27;
-            border: 1px solid #263c54;
-            border-radius: 6px;
-            padding: 7px 10px;
-            color: #dce7f2;
-            min-width: 125px;
-        }
+    #memory_panel {
+        background-color: #090909;
+        border: 1px solid #292929;
+        border-radius: 3px;
+    }
 
-        QComboBox:hover {
-            border: 1px solid #00aaff;
-        }
-
-        QComboBox QAbstractItemView {
-            background-color: #101a27;
-            color: #ffffff;
-            selection-background-color: #173653;
-        }
+    #memory_panel:hover {
+        border: 1px solid #3b3b3b;
+    }
 
 
-        /* =================================================
-           TELEMETRY GRAPH
-           ================================================= */
+    /* =====================================================
+       SECTION TITLES
+       ===================================================== */
 
-        #telemetry_frame {
-            background-color: #0b111a;
-            border: 1px solid #16405c;
-            border-radius: 14px;
-        }
-
-        #graph_title {
-            color: #ffffff;
-            font-size: 14px;
-            font-weight: bold;
-            background: transparent;
-            border: none;
-        }
-
-        #live_label {
-            color: #39ff88;
-            font-size: 11px;
-            font-weight: bold;
-            background: transparent;
-            border: none;
-        }
+    #section_title {
+        color: #dddddd;
+        font-size: 12px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+    }
 
 
-        /* =================================================
-           SECTION TITLES
-           ================================================= */
+    /* =====================================================
+       MEMORY STATISTICS
+       ===================================================== */
 
-        #section_title {
-            color: #ffffff;
-            font-size: 14px;
-            font-weight: bold;
-            background: transparent;
-            border: none;
-        }
+    #memory_stat {
+        color: #aaaaaa;
+        font-size: 12px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+        padding: 5px 12px;
+    }
 
 
-        /* =================================================
-           MEMORY
-           ================================================= */
+    /* =====================================================
+       APPLICATION ROW
+       ===================================================== */
 
-        #graph_container {
-            background-color: #0b111a;
-            border: 1px solid #1c3045;
-            border-radius: 12px;
-        }
+    #application_row {
+        background-color: #0e0e0e;
+        border: 1px solid #202020;
+        border-radius: 2px;
+    }
 
-        #memory_value {
-            color: #ffffff;
-            font-size: 18px;
-            padding: 10px;
-            background: transparent;
-            border: none;
-        }
+    #application_row:hover {
+        background-color: #151515;
+        border: 1px solid #3a3a3a;
+    }
 
-    """)
+    #app_name {
+        color: #d5d5d5;
+        font-size: 11px;
+        background: transparent;
+        border: none;
+    }
 
-    # =================================================
-    # CREATE WINDOW
-    # =================================================
+    #app_memory {
+        color: #8a8a8a;
+        font-size: 11px;
+        background: transparent;
+        border: none;
+    }
+
+    #app_percent {
+        color: #eeeeee;
+        font-size: 11px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+        min-width: 45px;
+    }
+
+
+    /* =====================================================
+       SCROLLBAR
+       ===================================================== */
+
+    QScrollArea {
+        background: transparent;
+        border: none;
+    }
+
+    QScrollBar:vertical {
+        background: #080808;
+        width: 6px;
+        border: none;
+    }
+
+    QScrollBar::handle:vertical {
+        background: #3a3a3a;
+        min-height: 25px;
+    }
+
+    QScrollBar::handle:vertical:hover {
+        background: #666666;
+    }
+
+
+    /* =====================================================
+       CONTROLS
+       ===================================================== */
+
+    #controls_frame {
+        background-color: #090909;
+        border: 1px solid #292929;
+        border-radius: 2px;
+    }
+
+    #control_label {
+        color: #777777;
+        font-size: 10px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+    }
+
+    QComboBox {
+        background-color: #0d0d0d;
+        border: 1px solid #333333;
+        border-radius: 2px;
+        padding: 6px 10px;
+        color: #cccccc;
+        min-width: 120px;
+    }
+
+    QComboBox:hover {
+        border: 1px solid #777777;
+    }
+
+    QComboBox QAbstractItemView {
+        background-color: #0c0c0c;
+        color: #dddddd;
+        selection-background-color: #301010;
+        border: 1px solid #333333;
+    }
+
+
+    /* =====================================================
+       TELEMETRY
+       ===================================================== */
+
+    #telemetry_frame {
+        background-color: #070707;
+        border: 1px solid #292929;
+        border-radius: 3px;
+    }
+
+    #graph_title {
+        color: #dddddd;
+        font-size: 12px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+    }
+
+    #live_label {
+        color: #55d66f;
+        font-size: 10px;
+        font-weight: bold;
+        background: transparent;
+        border: none;
+    }
+
+
+    /* =====================================================
+       GAMING KPI CARDS
+       ===================================================== */
+
+    #gaming_card {
+        background-color: #090909;
+        border: 1px solid #292929;
+        border-radius: 3px;
+    }
+
+    #gaming_card:hover {
+        background-color: #101010;
+        border: 1px solid #444444;
+    }
+
+""")
+
 
     window = MainWindow()
 
-    # =================================================
-    # SHOW WINDOW
-    # =================================================
 
     window.show()
 
-    # =================================================
-    # START APPLICATION
-    # =================================================
+
 
     sys.exit(
         app.exec()
