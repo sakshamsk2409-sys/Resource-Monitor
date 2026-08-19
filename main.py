@@ -364,6 +364,74 @@ if __name__ == "__main__":
 
     app.setStyleSheet("""
 
+
+            /* =================================================
+           PERFORMANCE COCKPIT
+           ================================================= */
+
+        #cockpit_title {
+            color: #eeeeee;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            background: transparent;
+            border: none;
+        }
+
+        #cockpit_subtitle {
+            color: #555555;
+            font-size: 9px;
+            letter-spacing: 2px;
+            background: transparent;
+            border: none;
+        }
+
+        #cockpit_status {
+            color: #55d66f;
+            font-size: 10px;
+            font-weight: bold;
+            background: transparent;
+            border: none;
+        }
+
+        #cockpit_info {
+            background-color: #090909;
+            border: 1px solid #242424;
+            border-radius: 2px;
+        }
+
+        #gpu_name {
+            color: #888888;
+            font-size: 10px;
+            background: transparent;
+            border: none;
+        }
+
+        #telemetry_value {
+            color: #cccccc;
+            font-size: 10px;
+            font-weight: bold;
+            background: transparent;
+            border: none;
+        }
+
+        #telemetry_title {
+            color: #aaaaaa;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            background: transparent;
+            border: none;
+        }
+
+        #telemetry_label {
+            color: #555555;
+            font-size: 9px;
+            font-weight: bold;
+            background: transparent;
+            border: none;
+        }
+
     /* =====================================================
        GLOBAL
        ===================================================== */
@@ -578,25 +646,27 @@ if __name__ == "__main__":
         border: none;
     }
 
-    QComboBox {
-        background-color: #0d0d0d;
-        border: 1px solid #333333;
-        border-radius: 2px;
-        padding: 6px 10px;
-        color: #cccccc;
-        min-width: 120px;
-    }
+            QComboBox {
+            background-color: #0b0b0b;
+            border: 1px solid #303030;
+            border-radius: 2px;
+            padding: 5px 8px;
+            color: #cccccc;
+            min-width: 120px;
+        }
 
-    QComboBox:hover {
-        border: 1px solid #777777;
-    }
+        QComboBox:hover {
+            border: 1px solid #666666;
+        }
 
-    QComboBox QAbstractItemView {
-        background-color: #0c0c0c;
-        color: #dddddd;
-        selection-background-color: #301010;
-        border: 1px solid #333333;
-    }
+        QComboBox QAbstractItemView {
+            background-color: #0b0b0b;
+            color: #dddddd;
+            selection-background-color: #321111;
+            border: 1px solid #333333;
+        }
+
+    
 
 
     /* =====================================================

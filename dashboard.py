@@ -1,8 +1,22 @@
+import math
+
 import psutil
 import pyqtgraph as pg
 import pynvml
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import (
+    Qt,
+    QTimer,
+    QRectF,
+    QPointF,
+)
+from PySide6.QtGui import (
+    QPainter,
+    QColor,
+    QPen,
+    QBrush,
+    QFont,
+)
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -13,6 +27,661 @@ from PySide6.QtWidgets import (
 )
 
 
+# =========================================================
+# PERFORMANCE GAUGE
+# =========================================================
+
+class PerformanceGauge(QWidget):
+
+    def __init__(
+        self,
+        title,
+        unit,
+        accent,
+        minimum=0,
+        maximum=100,
+        redline=90,
+        parent=None
+    ):
+
+        super().__init__(parent)
+
+        self.title = title
+        self.unit = unit
+        self.accent = accent
+
+        self.minimum = minimum
+        self.maximum = maximum
+        self.redline = redline
+
+        self.value = minimum
+
+        self.setMinimumSize(
+            250,
+            250
+        )
+
+        self.setSizePolicy(
+            self.sizePolicy()
+        )
+
+        self.setAttribute(
+            Qt.WA_TranslucentBackground
+        )
+
+    # =====================================================
+    # SET VALUE
+    # =====================================================
+
+    def setValue(self, value):
+
+        if value is None:
+
+            self.value = self.minimum
+
+        else:
+
+            self.value = max(
+                self.minimum,
+                min(
+                    self.maximum,
+                    float(value)
+                )
+            )
+
+        self.update()
+
+    # =====================================================
+    # VALUE COLOR
+    # =====================================================
+
+    def get_value_color(self):
+
+        percentage = (
+            (self.value - self.minimum)
+            /
+            (self.maximum - self.minimum)
+        )
+
+        redline_percentage = (
+            (self.redline - self.minimum)
+            /
+            (self.maximum - self.minimum)
+        )
+
+        if percentage >= redline_percentage:
+
+            return QColor(
+                "#e53935"
+            )
+
+        if percentage >= 0.75:
+
+            return QColor(
+                "#ff8f00"
+            )
+
+        return QColor(
+            self.accent
+        )
+
+    # =====================================================
+    # PAINT
+    # =====================================================
+
+    def paintEvent(self, event):
+
+        painter = QPainter(
+            self
+        )
+
+        painter.setRenderHint(
+            QPainter.Antialiasing
+        )
+
+        width = self.width()
+        height = self.height()
+
+        center = QPointF(
+            width / 2,
+            height / 2
+        )
+
+        # =================================================
+        # GAUGE DIMENSIONS
+        # =================================================
+
+        size = min(
+            width,
+            height
+        )
+
+        radius = (
+            size * 0.37
+        )
+
+        # =================================================
+        # BACKGROUND
+        # =================================================
+
+        painter.setPen(
+            Qt.NoPen
+        )
+
+        painter.setBrush(
+            QColor(
+                "#090909"
+            )
+        )
+
+        painter.drawEllipse(
+            QRectF(
+                center.x() - radius - 25,
+                center.y() - radius - 25,
+                (radius + 25) * 2,
+                (radius + 25) * 2
+            )
+        )
+
+        # =================================================
+        # OUTER RING
+        # =================================================
+
+        outer_pen = QPen(
+            QColor(
+                "#292929"
+            )
+        )
+
+        outer_pen.setWidth(
+            2
+        )
+
+        painter.setPen(
+            outer_pen
+        )
+
+        painter.setBrush(
+            Qt.NoBrush
+        )
+
+        painter.drawEllipse(
+            QRectF(
+                center.x() - radius - 12,
+                center.y() - radius - 12,
+                (radius + 12) * 2,
+                (radius + 12) * 2
+            )
+        )
+
+        # =================================================
+        # GAUGE ANGLES
+        # =================================================
+
+        start_angle = 225
+        end_angle = -45
+
+        total_angle = (
+            start_angle - end_angle
+        )
+
+        # =================================================
+        # BASE TRACK
+        # =================================================
+
+        track_pen = QPen(
+            QColor(
+                "#242424"
+            )
+        )
+
+        track_pen.setWidth(
+            16
+        )
+
+        track_pen.setCapStyle(
+            Qt.RoundCap
+        )
+
+        painter.setPen(
+            track_pen
+        )
+
+        arc_rect = QRectF(
+            center.x() - radius,
+            center.y() - radius,
+            radius * 2,
+            radius * 2
+        )
+
+        painter.drawArc(
+            arc_rect,
+            int(start_angle * 16),
+            int(-total_angle * 16)
+        )
+
+        # =================================================
+        # REDLINE TRACK
+        # =================================================
+
+        redline_ratio = (
+            self.redline - self.minimum
+        ) / (
+            self.maximum - self.minimum
+        )
+
+        redline_angle = (
+            total_angle
+            * redline_ratio
+        )
+
+        red_pen = QPen(
+            QColor(
+                "#4b1717"
+            )
+        )
+
+        red_pen.setWidth(
+            16
+        )
+
+        red_pen.setCapStyle(
+            Qt.RoundCap
+        )
+
+        painter.setPen(
+            red_pen
+        )
+
+        painter.drawArc(
+            arc_rect,
+            int(
+                (
+                    start_angle
+                    -
+                    redline_angle
+                )
+                * 16
+            ),
+            int(
+                -(
+                    total_angle
+                    -
+                    redline_angle
+                )
+                * 16
+            )
+        )
+
+        # =================================================
+        # ACTIVE ARC
+        # =================================================
+
+        value_ratio = (
+            self.value - self.minimum
+        ) / (
+            self.maximum - self.minimum
+        )
+
+        active_angle = (
+            total_angle
+            * value_ratio
+        )
+
+        active_color = (
+            self.get_value_color()
+        )
+
+        active_pen = QPen(
+            active_color
+        )
+
+        active_pen.setWidth(
+            16
+        )
+
+        active_pen.setCapStyle(
+            Qt.RoundCap
+        )
+
+        painter.setPen(
+            active_pen
+        )
+
+        painter.drawArc(
+            arc_rect,
+            int(start_angle * 16),
+            int(-active_angle * 16)
+        )
+
+        # =================================================
+        # TICKS
+        # =================================================
+
+        painter.setPen(
+            QPen(
+                QColor(
+                    "#555555"
+                ),
+                1
+            )
+        )
+
+        tick_count = 10
+
+        for i in range(
+            tick_count + 1
+        ):
+
+            ratio = (
+                i / tick_count
+            )
+
+            angle = math.radians(
+                start_angle
+                -
+                total_angle * ratio
+            )
+
+            outer_radius = (
+                radius + 3
+            )
+
+            inner_radius = (
+                radius - 10
+            )
+
+            x1 = (
+                center.x()
+                +
+                math.cos(angle)
+                * inner_radius
+            )
+
+            y1 = (
+                center.y()
+                -
+                math.sin(angle)
+                * inner_radius
+            )
+
+            x2 = (
+                center.x()
+                +
+                math.cos(angle)
+                * outer_radius
+            )
+
+            y2 = (
+                center.y()
+                -
+                math.sin(angle)
+                * outer_radius
+            )
+
+            painter.drawLine(
+                QPointF(x1, y1),
+                QPointF(x2, y2)
+            )
+
+        # =================================================
+        # NEEDLE
+        # =================================================
+
+        needle_ratio = value_ratio
+
+        needle_angle = math.radians(
+            start_angle
+            -
+            total_angle
+            * needle_ratio
+        )
+
+        needle_length = (
+            radius - 18
+        )
+
+        needle_x = (
+            center.x()
+            +
+            math.cos(needle_angle)
+            * needle_length
+        )
+
+        needle_y = (
+            center.y()
+            -
+            math.sin(needle_angle)
+            * needle_length
+        )
+
+        needle_color = (
+            self.get_value_color()
+        )
+
+        needle_pen = QPen(
+            needle_color
+        )
+
+        needle_pen.setWidth(
+            3
+        )
+
+        needle_pen.setCapStyle(
+            Qt.RoundCap
+        )
+
+        painter.setPen(
+            needle_pen
+        )
+
+        painter.drawLine(
+            center,
+            QPointF(
+                needle_x,
+                needle_y
+            )
+        )
+
+        # =================================================
+        # NEEDLE HUB
+        # =================================================
+
+        painter.setPen(
+            Qt.NoPen
+        )
+
+        painter.setBrush(
+            QColor(
+                "#dddddd"
+            )
+        )
+
+        painter.drawEllipse(
+            QRectF(
+                center.x() - 5,
+                center.y() - 5,
+                10,
+                10
+            )
+        )
+
+        painter.setBrush(
+            needle_color
+        )
+
+        painter.drawEllipse(
+            QRectF(
+                center.x() - 3,
+                center.y() - 3,
+                6,
+                6
+            )
+        )
+
+        # =================================================
+        # TITLE
+        # =================================================
+
+        painter.setPen(
+            QColor(
+                "#888888"
+            )
+        )
+
+        painter.setFont(
+            QFont(
+                "Segoe UI",
+                10,
+                QFont.Bold
+            )
+        )
+
+        title_rect = QRectF(
+            center.x() - 100,
+            center.y() - radius - 3,
+            200,
+            25
+        )
+
+        painter.drawText(
+            title_rect,
+            Qt.AlignCenter,
+            self.title.upper()
+        )
+
+        # =================================================
+        # DIGITAL VALUE
+        # =================================================
+
+        if self.unit == "°C":
+
+            value_text = (
+                f"{self.value:.0f}"
+            )
+
+        else:
+
+            value_text = (
+                f"{self.value:.0f}"
+            )
+
+        painter.setPen(
+            QColor(
+                "#eeeeee"
+            )
+        )
+
+        painter.setFont(
+            QFont(
+                "Segoe UI",
+                26,
+                QFont.Bold
+            )
+        )
+
+        value_rect = QRectF(
+            center.x() - 80,
+            center.y() + 20,
+            160,
+            38
+        )
+
+        painter.drawText(
+            value_rect,
+            Qt.AlignCenter,
+            value_text
+        )
+
+        # =================================================
+        # UNIT
+        # =================================================
+
+        painter.setPen(
+            active_color
+        )
+
+        painter.setFont(
+            QFont(
+                "Segoe UI",
+                9,
+                QFont.Bold
+            )
+        )
+
+        unit_rect = QRectF(
+            center.x() - 60,
+            center.y() + 57,
+            120,
+            20
+        )
+
+        painter.drawText(
+            unit_rect,
+            Qt.AlignCenter,
+            self.unit
+        )
+
+        # =================================================
+        # STATUS
+        # =================================================
+
+        if value_ratio >= redline_ratio:
+
+            status = "REDLINE"
+
+            status_color = QColor(
+                "#e53935"
+            )
+
+        elif value_ratio >= 0.75:
+
+            status = "HIGH"
+
+            status_color = QColor(
+                "#ff8f00"
+            )
+
+        else:
+
+            status = "NORMAL"
+
+            status_color = QColor(
+                "#666666"
+            )
+
+        painter.setPen(
+            status_color
+        )
+
+        painter.setFont(
+            QFont(
+                "Segoe UI",
+                8,
+                QFont.Bold
+            )
+        )
+
+        status_rect = QRectF(
+            center.x() - 70,
+            center.y() + 78,
+            140,
+            18
+        )
+
+        painter.drawText(
+            status_rect,
+            Qt.AlignCenter,
+            status
+        )
+
+        painter.end()
+
+
+# =========================================================
+# DASHBOARD PAGE
+# =========================================================
+
 class DashboardPage(QWidget):
 
     def __init__(self):
@@ -20,10 +689,11 @@ class DashboardPage(QWidget):
         super().__init__()
 
         # =================================================
-        # GPU / NVML INITIALIZATION
+        # GPU INITIALIZATION
         # =================================================
 
         self.gpu_available = False
+
         self.gpu_handle = None
 
         try:
@@ -37,21 +707,64 @@ class DashboardPage(QWidget):
             if gpu_count > 0:
 
                 self.gpu_handle = (
-                    pynvml.nvmlDeviceGetHandleByIndex(0)
+                    pynvml.nvmlDeviceGetHandleByIndex(
+                        0
+                    )
                 )
 
                 self.gpu_available = True
 
+                try:
+
+                    gpu_name = (
+                        pynvml.nvmlDeviceGetName(
+                            self.gpu_handle
+                        )
+                    )
+
+                    if isinstance(
+                        gpu_name,
+                        bytes
+                    ):
+
+                        gpu_name = (
+                            gpu_name.decode(
+                                "utf-8",
+                                errors="ignore"
+                            )
+                        )
+
+                    self.gpu_name = str(
+                        gpu_name
+                    )
+
+                except pynvml.NVMLError:
+
+                    self.gpu_name = (
+                        "NVIDIA GPU"
+                    )
+
+            else:
+
+                self.gpu_name = (
+                    "NO NVIDIA GPU"
+                )
+
         except pynvml.NVMLError as error:
 
             print(
-                f"NVML initialization error: {error}"
+                "NVML initialization failed:",
+                error
             )
 
             self.gpu_available = False
 
+            self.gpu_name = (
+                "NVIDIA GPU NOT DETECTED"
+            )
+
         # =================================================
-        # GRAPH SETTINGS
+        # HISTORY
         # =================================================
 
         self.max_points = 60
@@ -69,13 +782,13 @@ class DashboardPage(QWidget):
         )
 
         # =================================================
-        # UI
+        # BUILD UI
         # =================================================
 
         self.setup_ui()
 
         # =================================================
-        # UPDATE TIMER
+        # TIMER
         # =================================================
 
         self.timer = QTimer(
@@ -90,7 +803,6 @@ class DashboardPage(QWidget):
             1000
         )
 
-        # Initial update
         self.update_data()
 
     # =====================================================
@@ -104,38 +816,62 @@ class DashboardPage(QWidget):
         )
 
         layout.setContentsMargins(
-            30,
             25,
-            30,
-            25
+            20,
+            25,
+            20
         )
 
         layout.setSpacing(
-            14
+            10
         )
 
         # =================================================
         # HEADER
         # =================================================
 
+        header = QHBoxLayout()
+
         title = QLabel(
-            "Dashboard"
+            "PERFORMANCE COCKPIT"
         )
 
         title.setObjectName(
-            "page_title"
+            "cockpit_title"
         )
 
+        status = QLabel(
+            "● SYSTEM ONLINE"
+        )
+
+        status.setObjectName(
+            "cockpit_status"
+        )
+
+        header.addWidget(
+            title
+        )
+
+        header.addStretch()
+
+        header.addWidget(
+            status
+        )
+
+        layout.addLayout(
+            header
+        )
+
+        # =================================================
+        # SUBTITLE
+        # =================================================
+
         subtitle = QLabel(
-            "REAL-TIME SYSTEM PERFORMANCE"
+            "REAL-TIME VEHICLE-STYLE SYSTEM TELEMETRY"
         )
 
         subtitle.setObjectName(
-            "dashboard_subtitle"
-        )
-
-        layout.addWidget(
-            title
+            "cockpit_subtitle"
         )
 
         layout.addWidget(
@@ -143,133 +879,111 @@ class DashboardPage(QWidget):
         )
 
         # =================================================
-        # KPI CARDS
+        # GAUGE ROW 1
         # =================================================
 
-        cards_layout = QHBoxLayout()
+        gauge_row_1 = QHBoxLayout()
 
-        cards_layout.setSpacing(
-            12
+        gauge_row_1.setSpacing(
+            8
         )
 
-        # -------------------------------------------------
         # CPU
-        # -------------------------------------------------
-
-        self.cpu_value = QLabel(
-            "0%"
-        )
-
-        cpu_card = self.create_gaming_card(
-            title="CPU",
-            value_label=self.cpu_value,
-            description="PROCESSOR",
+        self.cpu_gauge = PerformanceGauge(
+            title="CPU LOAD",
+            unit="%",
             accent="#ff8f00",
-            icon="◈"
+            redline=90
         )
 
-        # -------------------------------------------------
         # GPU
-        # -------------------------------------------------
-
-        self.gpu_value = QLabel(
-            "N/A"
-        )
-
-        gpu_card = self.create_gaming_card(
-            title="GPU",
-            value_label=self.gpu_value,
-            description="GRAPHICS",
+        self.gpu_gauge = PerformanceGauge(
+            title="GPU LOAD",
+            unit="%",
             accent="#8bc34a",
-            icon="◆"
+            redline=90
         )
 
-        # -------------------------------------------------
-        # RAM
-        # -------------------------------------------------
-
-        self.ram_value = QLabel(
-            "0%"
+        gauge_row_1.addWidget(
+            self.cpu_gauge
         )
 
-        ram_card = self.create_gaming_card(
-            title="RAM",
-            value_label=self.ram_value,
-            description="MEMORY",
-            accent="#ab47bc",
-            icon="▣"
-        )
-
-        # -------------------------------------------------
-        # TEMPERATURE
-        # -------------------------------------------------
-
-        self.temp_value = QLabel(
-            "N/A"
-        )
-
-        temp_card = self.create_gaming_card(
-            title="TEMP",
-            value_label=self.temp_value,
-            description="GPU TEMP",
-            accent="#e53935",
-            icon="◉"
-        )
-
-        cards_layout.addWidget(
-            cpu_card
-        )
-
-        cards_layout.addWidget(
-            gpu_card
-        )
-
-        cards_layout.addWidget(
-            ram_card
-        )
-
-        cards_layout.addWidget(
-            temp_card
+        gauge_row_1.addWidget(
+            self.gpu_gauge
         )
 
         layout.addLayout(
-            cards_layout
+            gauge_row_1,
+            1
         )
 
         # =================================================
-        # SECONDARY GPU INFORMATION
+        # GAUGE ROW 2
         # =================================================
 
-        gpu_info_frame = QFrame()
+        gauge_row_2 = QHBoxLayout()
 
-        gpu_info_frame.setObjectName(
-            "gpu_info_frame"
+        gauge_row_2.setSpacing(
+            8
+        )
+
+        # RAM
+        self.ram_gauge = PerformanceGauge(
+            title="MEMORY LOAD",
+            unit="%",
+            accent="#ab47bc",
+            redline=90
+        )
+
+        # TEMP
+        self.temp_gauge = PerformanceGauge(
+            title="GPU TEMP",
+            unit="°C",
+            accent="#e53935",
+            minimum=30,
+            maximum=100,
+            redline=85
+        )
+
+        gauge_row_2.addWidget(
+            self.ram_gauge
+        )
+
+        gauge_row_2.addWidget(
+            self.temp_gauge
+        )
+
+        layout.addLayout(
+            gauge_row_2,
+            1
+        )
+
+        # =================================================
+        # GPU INFO BAR
+        # =================================================
+
+        gpu_info = QFrame()
+
+        gpu_info.setObjectName(
+            "cockpit_info"
         )
 
         gpu_info_layout = QHBoxLayout(
-            gpu_info_frame
+            gpu_info
         )
 
         gpu_info_layout.setContentsMargins(
             12,
-            7,
+            5,
             12,
-            7
+            5
         )
 
-        gpu_info_title = QLabel(
-            "GPU"
+        gpu_name_label = QLabel(
+            self.gpu_name
         )
 
-        gpu_info_title.setObjectName(
-            "small_label"
-        )
-
-        self.gpu_name_label = QLabel(
-            "NVIDIA GPU"
-        )
-
-        self.gpu_name_label.setObjectName(
+        gpu_name_label.setObjectName(
             "gpu_name"
         )
 
@@ -278,23 +992,19 @@ class DashboardPage(QWidget):
         )
 
         self.vram_label.setObjectName(
-            "small_value"
+            "telemetry_value"
         )
 
-        self.gpu_power_label = QLabel(
+        self.power_label = QLabel(
             "POWER: N/A"
         )
 
-        self.gpu_power_label.setObjectName(
-            "small_value"
+        self.power_label.setObjectName(
+            "telemetry_value"
         )
 
         gpu_info_layout.addWidget(
-            gpu_info_title
-        )
-
-        gpu_info_layout.addWidget(
-            self.gpu_name_label
+            gpu_name_label
         )
 
         gpu_info_layout.addStretch()
@@ -308,153 +1018,63 @@ class DashboardPage(QWidget):
         )
 
         gpu_info_layout.addWidget(
-            self.gpu_power_label
+            self.power_label
         )
 
         layout.addWidget(
-            gpu_info_frame
+            gpu_info
         )
 
         # =================================================
-        # CONTROLS
+        # TELEMETRY HEADER
         # =================================================
 
-        controls_frame = QFrame()
+        telemetry_header = QHBoxLayout()
 
-        controls_frame.setObjectName(
-            "controls_frame"
+        telemetry_title = QLabel(
+            "LIVE TELEMETRY"
         )
 
-        controls_layout = QHBoxLayout(
-            controls_frame
+        telemetry_title.setObjectName(
+            "telemetry_title"
         )
 
-        controls_layout.setContentsMargins(
-            10,
-            5,
-            10,
-            5
+        telemetry_header.addWidget(
+            telemetry_title
         )
+
+        telemetry_header.addStretch()
 
         metric_label = QLabel(
-            "METRICS"
+            "VIEW:"
         )
 
         metric_label.setObjectName(
-            "control_label"
+            "telemetry_label"
         )
 
         self.metric_selector = QComboBox()
 
         self.metric_selector.addItems(
             [
-                "CPU + GPU + RAM",
-                "CPU + RAM",
+                "CPU / GPU / RAM",
+                "CPU / RAM",
                 "CPU",
                 "GPU",
                 "RAM",
             ]
         )
 
-        time_label = QLabel(
-            "WINDOW"
-        )
-
-        time_label.setObjectName(
-            "control_label"
-        )
-
-        self.time_selector = QComboBox()
-
-        self.time_selector.addItems(
-            [
-                "1 Minute",
-                "5 Minutes",
-                "15 Minutes",
-            ]
-        )
-
-        controls_layout.addWidget(
+        telemetry_header.addWidget(
             metric_label
         )
 
-        controls_layout.addWidget(
+        telemetry_header.addWidget(
             self.metric_selector
         )
 
-        controls_layout.addSpacing(
-            18
-        )
-
-        controls_layout.addWidget(
-            time_label
-        )
-
-        controls_layout.addWidget(
-            self.time_selector
-        )
-
-        controls_layout.addStretch()
-
-        layout.addWidget(
-            controls_frame
-        )
-
-        # =================================================
-        # TELEMETRY PANEL
-        # =================================================
-
-        graph_frame = QFrame()
-
-        graph_frame.setObjectName(
-            "telemetry_frame"
-        )
-
-        graph_layout = QVBoxLayout(
-            graph_frame
-        )
-
-        graph_layout.setContentsMargins(
-            15,
-            10,
-            15,
-            12
-        )
-
-        # -------------------------------------------------
-        # GRAPH HEADER
-        # -------------------------------------------------
-
-        graph_header = QHBoxLayout()
-
-        graph_title = QLabel(
-            "REAL-TIME TELEMETRY"
-        )
-
-        graph_title.setObjectName(
-            "graph_title"
-        )
-
-        live_label = QLabel(
-            "● LIVE"
-        )
-
-        live_label.setObjectName(
-            "live_label"
-        )
-
-        graph_header.addWidget(
-            graph_title
-        )
-
-        graph_header.addStretch()
-
-        graph_header.addWidget(
-            live_label
-        )
-
-        graph_layout.addLayout(
-            graph_header
+        layout.addLayout(
+            telemetry_header
         )
 
         # =================================================
@@ -463,6 +1083,10 @@ class DashboardPage(QWidget):
 
         self.graph = pg.PlotWidget()
 
+        self.graph.setMinimumHeight(
+            180
+        )
+
         self.graph.setBackground(
             "#050505"
         )
@@ -470,7 +1094,7 @@ class DashboardPage(QWidget):
         self.graph.showGrid(
             x=True,
             y=True,
-            alpha=0.08
+            alpha=0.07
         )
 
         self.graph.setYRange(
@@ -480,7 +1104,7 @@ class DashboardPage(QWidget):
 
         self.graph.setLabel(
             "left",
-            "USAGE (%)"
+            "LOAD %"
         )
 
         self.graph.setLabel(
@@ -488,27 +1112,23 @@ class DashboardPage(QWidget):
             "TIME"
         )
 
-        # =================================================
-        # AXES
-        # =================================================
-
         self.graph.getAxis(
             "left"
         ).setTextPen(
-            "#686868"
+            "#666666"
         )
 
         self.graph.getAxis(
             "bottom"
         ).setTextPen(
-            "#686868"
+            "#666666"
         )
 
         self.graph.getAxis(
             "left"
         ).setPen(
             pg.mkPen(
-                "#303030"
+                "#292929"
             )
         )
 
@@ -516,7 +1136,7 @@ class DashboardPage(QWidget):
             "bottom"
         ).setPen(
             pg.mkPen(
-                "#303030"
+                "#292929"
             )
         )
 
@@ -525,11 +1145,11 @@ class DashboardPage(QWidget):
         # =================================================
 
         self.graph.addLegend(
-            offset=(12, 10)
+            offset=(10, 10)
         )
 
         # =================================================
-        # CPU GRAPH
+        # CPU
         # =================================================
 
         self.cpu_curve = pg.PlotDataItem(
@@ -552,7 +1172,7 @@ class DashboardPage(QWidget):
                 255,
                 143,
                 0,
-                55
+                50
             )
         )
 
@@ -565,7 +1185,7 @@ class DashboardPage(QWidget):
         )
 
         # =================================================
-        # GPU GRAPH
+        # GPU
         # =================================================
 
         self.gpu_curve = pg.PlotDataItem(
@@ -588,7 +1208,7 @@ class DashboardPage(QWidget):
                 139,
                 195,
                 74,
-                50
+                45
             )
         )
 
@@ -601,7 +1221,7 @@ class DashboardPage(QWidget):
         )
 
         # =================================================
-        # RAM GRAPH
+        # RAM
         # =================================================
 
         self.ram_curve = pg.PlotDataItem(
@@ -624,7 +1244,7 @@ class DashboardPage(QWidget):
                 171,
                 71,
                 188,
-                50
+                45
             )
         )
 
@@ -636,165 +1256,18 @@ class DashboardPage(QWidget):
             self.ram_curve
         )
 
-        graph_layout.addWidget(
-            self.graph
-        )
-
         layout.addWidget(
-            graph_frame,
+            self.graph,
             1
         )
 
         # =================================================
-        # GRAPH SELECTOR
+        # GRAPH SELECTION
         # =================================================
 
         self.metric_selector.currentIndexChanged.connect(
             self.update_graph_visibility
         )
-
-    # =====================================================
-    # KPI CARD
-    # =====================================================
-
-    def create_gaming_card(
-        self,
-        title,
-        value_label,
-        description,
-        accent,
-        icon
-    ):
-
-        card = QFrame()
-
-        card.setObjectName(
-            "gaming_card"
-        )
-
-        card.setStyleSheet(
-            f"""
-            QFrame#gaming_card {{
-                background-color: #090909;
-                border: 1px solid #292929;
-                border-top: 2px solid {accent};
-                border-radius: 3px;
-            }}
-            """
-        )
-
-        layout = QVBoxLayout(
-            card
-        )
-
-        layout.setContentsMargins(
-            14,
-            10,
-            14,
-            10
-        )
-
-        layout.setSpacing(
-            3
-        )
-
-        # =================================================
-        # TITLE
-        # =================================================
-
-        top_row = QHBoxLayout()
-
-        title_label = QLabel(
-            title
-        )
-
-        title_label.setStyleSheet(
-            f"""
-            QLabel {{
-                color: {accent};
-                font-size: 11px;
-                font-weight: bold;
-                background: transparent;
-                border: none;
-            }}
-            """
-        )
-
-        icon_label = QLabel(
-            icon
-        )
-
-        icon_label.setStyleSheet(
-            f"""
-            QLabel {{
-                color: {accent};
-                font-size: 16px;
-                font-weight: bold;
-                background: transparent;
-                border: none;
-            }}
-            """
-        )
-
-        top_row.addWidget(
-            title_label
-        )
-
-        top_row.addStretch()
-
-        top_row.addWidget(
-            icon_label
-        )
-
-        layout.addLayout(
-            top_row
-        )
-
-        # =================================================
-        # VALUE
-        # =================================================
-
-        value_label.setStyleSheet(
-            """
-            QLabel {
-                color: #eeeeee;
-                font-size: 27px;
-                font-weight: bold;
-                background: transparent;
-                border: none;
-            }
-            """
-        )
-
-        layout.addWidget(
-            value_label
-        )
-
-        # =================================================
-        # DESCRIPTION
-        # =================================================
-
-        description_label = QLabel(
-            description
-        )
-
-        description_label.setStyleSheet(
-            f"""
-            QLabel {{
-                color: {accent};
-                font-size: 9px;
-                font-weight: bold;
-                background: transparent;
-                border: none;
-            }}
-            """
-        )
-
-        layout.addWidget(
-            description_label
-        )
-
-        return card
 
     # =====================================================
     # UPDATE DATA
@@ -814,15 +1287,17 @@ class DashboardPage(QWidget):
         # RAM
         # =================================================
 
-        memory = psutil.virtual_memory()
-
-        ram = memory.percent
+        ram = psutil.virtual_memory().percent
 
         # =================================================
-        # GPU DEFAULTS
+        # GPU DEFAULT
         # =================================================
 
-        gpu_usage = 0
+        gpu_usage = (
+            self.gpu_history[-1]
+            if self.gpu_history
+            else 0
+        )
 
         gpu_temperature = None
 
@@ -833,14 +1308,14 @@ class DashboardPage(QWidget):
         power_usage = None
 
         # =================================================
-        # NVIDIA GPU
+        # NVIDIA
         # =================================================
 
         if self.gpu_available:
 
-            # -------------------------------------------------
+            # ---------------------------------------------
             # GPU UTILIZATION
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             try:
 
@@ -854,17 +1329,17 @@ class DashboardPage(QWidget):
                     utilization.gpu
                 )
 
-            except pynvml.NVMLError as error:
+            except pynvml.NVMLError:
 
-                print(
-                    f"GPU utilization error: {error}"
+                gpu_usage = (
+                    self.gpu_history[-1]
+                    if self.gpu_history
+                    else 0
                 )
 
-                gpu_usage = 0
-
-            # -------------------------------------------------
-            # GPU TEMPERATURE
-            # -------------------------------------------------
+            # ---------------------------------------------
+            # TEMPERATURE
+            # ---------------------------------------------
 
             try:
 
@@ -875,17 +1350,13 @@ class DashboardPage(QWidget):
                     )
                 )
 
-            except pynvml.NVMLError as error:
-
-                print(
-                    f"GPU temperature error: {error}"
-                )
+            except pynvml.NVMLError:
 
                 gpu_temperature = None
 
-            # -------------------------------------------------
+            # ---------------------------------------------
             # VRAM
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             try:
 
@@ -903,19 +1374,13 @@ class DashboardPage(QWidget):
                     memory_info.total
                 )
 
-            except pynvml.NVMLError as error:
+            except pynvml.NVMLError:
 
-                print(
-                    f"VRAM error: {error}"
-                )
+                pass
 
-                vram_used = None
-
-                vram_total = None
-
-            # -------------------------------------------------
+            # ---------------------------------------------
             # POWER
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             try:
 
@@ -928,39 +1393,23 @@ class DashboardPage(QWidget):
 
             except pynvml.NVMLError:
 
-                power_usage = None
+                pass
 
         # =================================================
-        # CPU CARD
+        # UPDATE GAUGES
         # =================================================
 
-        self.cpu_value.setText(
-            f"{cpu:.1f}%"
+        self.cpu_gauge.setValue(
+            cpu
         )
 
-        # =================================================
-        # RAM CARD
-        # =================================================
-
-        self.ram_value.setText(
-            f"{ram:.1f}%"
+        self.gpu_gauge.setValue(
+            gpu_usage
         )
 
-        # =================================================
-        # GPU CARD
-        # =================================================
-
-        if self.gpu_available:
-
-            self.gpu_value.setText(
-                f"{gpu_usage}%"
-            )
-
-        else:
-
-            self.gpu_value.setText(
-                "N/A"
-            )
+        self.ram_gauge.setValue(
+            ram
+        )
 
         # =================================================
         # TEMPERATURE
@@ -968,60 +1417,12 @@ class DashboardPage(QWidget):
 
         if gpu_temperature is not None:
 
-            self.temp_value.setText(
-                f"{gpu_temperature}°C"
-            )
-
-        else:
-
-            self.temp_value.setText(
-                "N/A"
+            self.temp_gauge.setValue(
+                gpu_temperature
             )
 
         # =================================================
-        # GPU NAME
-        # =================================================
-
-        if self.gpu_available:
-
-            try:
-
-                gpu_name = (
-                    pynvml.nvmlDeviceGetName(
-                        self.gpu_handle
-                    )
-                )
-
-                if isinstance(
-                    gpu_name,
-                    bytes
-                ):
-
-                    gpu_name = (
-                        gpu_name.decode(
-                            "utf-8",
-                            errors="ignore"
-                        )
-                    )
-
-                self.gpu_name_label.setText(
-                    str(gpu_name)
-                )
-
-            except pynvml.NVMLError:
-
-                self.gpu_name_label.setText(
-                    "NVIDIA GPU"
-                )
-
-        else:
-
-            self.gpu_name_label.setText(
-                "NVIDIA GPU NOT DETECTED"
-            )
-
-        # =================================================
-        # VRAM LABEL
+        # VRAM
         # =================================================
 
         if (
@@ -1032,53 +1433,55 @@ class DashboardPage(QWidget):
 
             used_gb = (
                 vram_used
-                / (1024 ** 3)
+                /
+                (1024 ** 3)
             )
 
             total_gb = (
                 vram_total
-                / (1024 ** 3)
+                /
+                (1024 ** 3)
             )
 
-            vram_percent = (
+            percent = (
                 vram_used
-                / vram_total
+                /
+                vram_total
                 * 100
-                if vram_total > 0
-                else 0
             )
 
             self.vram_label.setText(
-                f"VRAM: "
+                f"VRAM "
                 f"{used_gb:.1f}/"
                 f"{total_gb:.1f} GB "
-                f"({vram_percent:.0f}%)"
+                f"({percent:.0f}%)"
             )
 
         else:
 
             self.vram_label.setText(
-                "VRAM: N/A"
+                "VRAM N/A"
             )
 
         # =================================================
-        # POWER LABEL
+        # POWER
         # =================================================
 
         if power_usage is not None:
 
-            self.gpu_power_label.setText(
-                f"POWER: {power_usage:.1f} W"
+            self.power_label.setText(
+                f"POWER "
+                f"{power_usage:.1f} W"
             )
 
         else:
 
-            self.gpu_power_label.setText(
-                "POWER: N/A"
+            self.power_label.setText(
+                "POWER N/A"
             )
 
         # =================================================
-        # UPDATE HISTORY
+        # HISTORY
         # =================================================
 
         self.cpu_history.append(
@@ -1093,7 +1496,6 @@ class DashboardPage(QWidget):
             ram
         )
 
-        # Keep last 60 points
         self.cpu_history = (
             self.cpu_history[
                 -self.max_points:
@@ -1113,7 +1515,7 @@ class DashboardPage(QWidget):
         )
 
         # =================================================
-        # UPDATE CURVES
+        # UPDATE GRAPH
         # =================================================
 
         self.cpu_curve.setData(
@@ -1127,10 +1529,6 @@ class DashboardPage(QWidget):
         self.ram_curve.setData(
             self.ram_history
         )
-
-        # =================================================
-        # UPDATE FILLED AREAS
-        # =================================================
 
         self.cpu_bottom.setData(
             [0] * len(
@@ -1159,10 +1557,7 @@ class DashboardPage(QWidget):
         index
     ):
 
-        # -------------------------------------------------
-        # CPU + GPU + RAM
-        # -------------------------------------------------
-
+        # CPU / GPU / RAM
         if index == 0:
 
             self.cpu_curve.show()
@@ -1174,10 +1569,7 @@ class DashboardPage(QWidget):
             self.ram_curve.show()
             self.ram_fill.show()
 
-        # -------------------------------------------------
-        # CPU + RAM
-        # -------------------------------------------------
-
+        # CPU / RAM
         elif index == 1:
 
             self.cpu_curve.show()
@@ -1189,10 +1581,7 @@ class DashboardPage(QWidget):
             self.ram_curve.show()
             self.ram_fill.show()
 
-        # -------------------------------------------------
         # CPU
-        # -------------------------------------------------
-
         elif index == 2:
 
             self.cpu_curve.show()
@@ -1204,10 +1593,7 @@ class DashboardPage(QWidget):
             self.ram_curve.hide()
             self.ram_fill.hide()
 
-        # -------------------------------------------------
         # GPU
-        # -------------------------------------------------
-
         elif index == 3:
 
             self.cpu_curve.hide()
@@ -1219,10 +1605,7 @@ class DashboardPage(QWidget):
             self.ram_curve.hide()
             self.ram_fill.hide()
 
-        # -------------------------------------------------
         # RAM
-        # -------------------------------------------------
-
         elif index == 4:
 
             self.cpu_curve.hide()
@@ -1244,19 +1627,5 @@ class DashboardPage(QWidget):
     ):
 
         self.timer.stop()
-
-        # -------------------------------------------------
-        # Shutdown NVML
-        # -------------------------------------------------
-
-        if self.gpu_available:
-
-            try:
-
-                pynvml.nvmlShutdown()
-
-            except pynvml.NVMLError:
-
-                pass
 
         event.accept()
