@@ -68,10 +68,12 @@ class MainWindow(QMainWindow):
         self.disk_tile = Tile("DISK (R/W MB/s)")
         self.net_tile = Tile("NETWORK (\u2191/\u2193 MB/s)")
         self.temp_tile = Tile("CPU TEMP")
+        self.gpu_temp_tile = Tile("GPU TEMP")
 
         tiles = [
             self.cpu_tile, self.ram_tile, self.gpu_tile,
-            self.vram_tile, self.disk_tile, self.net_tile, self.temp_tile,
+            self.vram_tile, self.disk_tile, self.net_tile,
+            self.temp_tile, self.gpu_temp_tile,
         ]
         for i, tile in enumerate(tiles):
             tiles_layout.addWidget(tile, i // 4, i % 4)
@@ -106,6 +108,7 @@ class MainWindow(QMainWindow):
         if not self.telemetry_service.gpu_available:
             self.gpu_tile.set_value("N/A")
             self.vram_tile.set_value("N/A")
+            self.gpu_temp_tile.set_value("N/A")
 
         # --- Poll loop ---
         self.timer = QTimer(self)
@@ -125,11 +128,18 @@ class MainWindow(QMainWindow):
         self.temp_tile.set_value(
             f"{sample.cpu_temperature:.0f}\u00b0C" if sample.cpu_temperature is not None else "N/A"
         )
+        self.gpu_temp_tile.set_value(
+            f"{sample.gpu_temperature:.0f}\u00b0C" if sample.gpu_temperature is not None else "N/A"
+        )
 
         if sample.gpu_usage is not None:
             self.gpu_tile.set_value(f"{sample.gpu_usage:.0f}%")
+        else:
+            self.gpu_tile.set_value("N/A")
         if sample.vram_usage is not None:
             self.vram_tile.set_value(f"{sample.vram_usage:.0f}%")
+        else:
+            self.vram_tile.set_value("N/A")
 
         self._push(self.cpu_data, sample.cpu_usage)
         self._push(self.ram_data, sample.ram_usage)
