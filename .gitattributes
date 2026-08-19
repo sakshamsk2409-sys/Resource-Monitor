@@ -1,2 +1,33 @@
-# Auto detect text files and perform LF normalization
+# Normalize text files across platforms
 * text=auto
+
+# Python source and config files use LF in the repo
+*.py text eol=lf
+*.pyi text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.sh text eol=lf
+
+# Windows scripts keep CRLF to match typical local tooling
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Treat binary assets as binary to avoid text conversion issues
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.pyd binary
+*.db binary
+*.sqlite3 binary
