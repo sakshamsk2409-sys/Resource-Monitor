@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QPen,
     QBrush,
     QFont,
+    QPolygonF,
 )
 from PySide6.QtWidgets import (
     QWidget,
@@ -25,6 +26,85 @@ from PySide6.QtWidgets import (
     QFrame,
     QComboBox,
 )
+
+
+# =========================================================
+# CARBON-FIBRE BACKGROUND
+# =========================================================
+
+class CarbonFiberBackground(QWidget):
+
+    """Near-black twill weave used behind the Performance Cockpit."""
+
+    def __init__(self, parent=None):
+
+        super().__init__(parent)
+
+        self.setAttribute(
+            Qt.WA_StyledBackground,
+            False
+        )
+
+    def paintEvent(self, event):
+
+        painter = QPainter(
+            self
+        )
+
+        painter.fillRect(
+            self.rect(),
+            QColor("#050505")
+        )
+
+        # The staggered, diagonal strips suggest a twill weave without
+        # introducing the high-contrast grid of a checkerboard pattern.
+        tile = 18
+        width = self.width()
+        height = self.height()
+
+        painter.setPen(
+            Qt.NoPen
+        )
+
+        for row, y in enumerate(range(-tile, height + tile, tile)):
+
+            row_offset = (row % 2) * (tile // 2)
+
+            for x in range(-tile, width + tile, tile):
+
+                left = x + row_offset
+
+                painter.setBrush(
+                    QColor("#080808")
+                )
+
+                painter.drawPolygon(
+                    QPolygonF(
+                        [
+                            QPointF(left, y + 7),
+                            QPointF(left + 7, y),
+                            QPointF(left + tile, y),
+                            QPointF(left + tile - 7, y + 7),
+                        ]
+                    )
+                )
+
+                painter.setBrush(
+                    QColor("#030303")
+                )
+
+                painter.drawPolygon(
+                    QPolygonF(
+                        [
+                            QPointF(left, y + 9),
+                            QPointF(left + tile - 7, y + 9),
+                            QPointF(left + tile, y + tile),
+                            QPointF(left + 7, y + tile),
+                        ]
+                    )
+                )
+
+        painter.end()
 
 
 # =========================================================
@@ -682,7 +762,7 @@ class PerformanceGauge(QWidget):
 # DASHBOARD PAGE
 # =========================================================
 
-class DashboardPage(QWidget):
+class DashboardPage(CarbonFiberBackground):
 
     def __init__(self):
 
