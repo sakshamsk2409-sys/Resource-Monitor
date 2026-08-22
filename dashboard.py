@@ -1,4 +1,8 @@
 import math
+import json
+
+from urllib.error import URLError
+from urllib.request import urlopen
 
 import psutil
 import pyqtgraph as pg
@@ -938,12 +942,14 @@ class DashboardPage(CarbonFiberBackground):
             redline=90
         )
 
-        # GPU
-        self.gpu_gauge = PerformanceGauge(
-            title="GPU LOAD",
-            unit="%",
+        # CPU TEMPERATURE
+        self.cpu_temp_gauge = PerformanceGauge(
+            title="CPU TEMP",
+            unit="°C",
             accent="#8bc34a",
-            redline=90
+            minimum=30,
+            maximum=100,
+            redline=85
         )
 
         gauge_row_1.addWidget(
@@ -951,7 +957,7 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         gauge_row_1.addWidget(
-            self.gpu_gauge
+            self.cpu_temp_gauge
         )
 
         layout.addLayout(
@@ -1315,6 +1321,118 @@ class DashboardPage(CarbonFiberBackground):
     # UPDATE DATA
     # =====================================================
 
+    def get_cpu_temperature(self):
+
+        """Return the live CPU package temperature from available sensors."""
+
+        hardware_temperature = self.get_lhm_cpu_temperature()
+        if hardware_temperature is not None:
+            return hardware_temperature
+
+        return self.get_psutil_cpu_temperature()
+
+    def get_lhm_cpu_temperature(self):
+
+        """Read the local LibreHardwareMonitor web feed when it is running."""
+
+        try:
+            with urlopen(
+                "http://127.0.0.1:8085/data.json",
+                timeout=0.2
+            ) as response:
+                sensor_tree = json.load(response)
+        except (OSError, URLError, ValueError):
+            return None
+
+        def find_cpu_node(node):
+            hardware_id = node.get("HardwareId", "").lower()
+            if "cpu" in hardware_id:
+                return node
+
+            for child in node.get("Children", []):
+                cpu_node = find_cpu_node(child)
+                if cpu_node is not None:
+                    return cpu_node
+
+            return None
+
+        def find_temperature_sensors(node):
+            sensors = []
+
+            if node.get("Type") == "Temperature":
+                name = node.get("Text", "").lower()
+                if "distance to tjmax" not in name:
+                    try:
+                        value = float(node.get("RawValue", "").split()[0])
+                        sensors.append((name, value))
+                    except (AttributeError, IndexError, ValueError):
+                        pass
+
+            for child in node.get("Children", []):
+                sensors.extend(find_temperature_sensors(child))
+
+            return sensors
+
+        cpu_node = find_cpu_node(sensor_tree)
+        if cpu_node is None:
+            return None
+
+        temperatures = find_temperature_sensors(cpu_node)
+        if not temperatures:
+            return None
+
+        for name, value in temperatures:
+            if name == "cpu package":
+                return value
+
+        for name, value in temperatures:
+            if name == "core max":
+                return value
+
+        return max(value for _, value in temperatures)
+
+    def get_psutil_cpu_temperature(self):
+
+        """Return the best available CPU temperature reported by psutil."""
+
+        try:
+            sensor_groups = psutil.sensors_temperatures(
+                fahrenheit=False
+            )
+        except (AttributeError, OSError):
+            return None
+
+        preferred_readings = []
+        other_readings = []
+
+        for group_name, readings in sensor_groups.items():
+            group_is_cpu = any(
+                keyword in group_name.lower()
+                for keyword in ("coretemp", "cpu", "k10temp", "zenpower")
+            )
+
+            for reading in readings:
+                current = getattr(reading, "current", None)
+                if current is None:
+                    continue
+
+                label = getattr(reading, "label", "").lower()
+                if any(
+                    keyword in label
+                    for keyword in ("package", "cpu", "tdie", "tctl")
+                ):
+                    preferred_readings.append(current)
+                elif group_is_cpu or "core" in label:
+                    other_readings.append(current)
+
+        if preferred_readings:
+            return max(preferred_readings)
+
+        if other_readings:
+            return max(other_readings)
+
+        return None
+
     def update_data(self):
 
         # =================================================
@@ -1324,6 +1442,8 @@ class DashboardPage(CarbonFiberBackground):
         cpu = psutil.cpu_percent(
             interval=None
         )
+
+        cpu_temperature = self.get_cpu_temperature()
 
         # =================================================
         # RAM
@@ -1445,8 +1565,8 @@ class DashboardPage(CarbonFiberBackground):
             cpu
         )
 
-        self.gpu_gauge.setValue(
-            gpu_usage
+        self.cpu_temp_gauge.setValue(
+            cpu_temperature
         )
 
         self.ram_gauge.setValue(
