@@ -43,9 +43,12 @@ class MiniOverlayWidget(QWidget):
         self.setup_ui()
 
         self.timer = QTimer(self)
-        self.timer.setInterval(1000)
+        self.timer.setInterval(300)
         self.timer.timeout.connect(self.update_telemetry)
         self.timer.start()
+
+    def set_refresh_interval(self, ms):
+        self.timer.setInterval(ms)
 
     def init_gpu(self):
         if HAS_PYNVML and pynvml:

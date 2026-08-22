@@ -333,12 +333,20 @@ class MemoryPage(QWidget):
             self.update_memory
         )
 
-        self.timer.start(
-            1000
-        )
-
-        # Initial update
+        self.timer.start(500)
         self.update_memory()
+
+    def set_refresh_interval(self, ms):
+        self.timer.setInterval(ms)
+
+    def pause_timer(self):
+        if self.timer.isActive():
+            self.timer.stop()
+
+    def resume_timer(self):
+        if not self.timer.isActive():
+            self.update_memory()
+            self.timer.start()
 
     # =====================================================
     # SETUP UI

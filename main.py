@@ -208,6 +208,37 @@ class MainWindow(QMainWindow):
         self.overlay_btn.clicked.connect(self.toggle_overlay)
         sidebar_layout.addWidget(self.overlay_btn)
 
+        sidebar_layout.addSpacing(10)
+
+        # Refresh Speed Selector
+        speed_lbl = QLabel("REFRESH SPEED:")
+        speed_lbl.setStyleSheet("color: #777777; font-size: 9px; font-weight: bold; letter-spacing: 1px;")
+        sidebar_layout.addWidget(speed_lbl)
+
+        self.speed_combo = QComboBox()
+        self.speed_combo.addItem("🚀 Task Manager Speed (500ms)", 500)
+        self.speed_combo.addItem("⚡ Ultra Fast (250ms)", 250)
+        self.speed_combo.addItem("⏱ Normal Speed (1000ms)", 1000)
+        self.speed_combo.addItem("🌿 Eco Saver (2000ms)", 2000)
+        self.speed_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #0d0d0d;
+                color: #dddddd;
+                border: 1px solid #333333;
+                border-radius: 4px;
+                padding: 6px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #111111;
+                color: #ffffff;
+                selection-background-color: #ff8f00;
+            }
+        """)
+        self.speed_combo.currentIndexChanged.connect(self.on_speed_changed)
+        sidebar_layout.addWidget(self.speed_combo)
+
         sidebar_layout.addStretch()
 
         # Alert & Monitoring Status
@@ -399,6 +430,17 @@ class MainWindow(QMainWindow):
     # =================================================
     # PLACEHOLDER PAGE
     # =================================================
+
+    def on_speed_changed(self, index):
+        ms = self.speed_combo.itemData(index)
+        if not ms:
+            return
+        for i in range(self.pages.count()):
+            page_widget = self.pages.widget(i)
+            if hasattr(page_widget, "set_refresh_interval"):
+                page_widget.set_refresh_interval(ms)
+        if hasattr(self.overlay_widget, "set_refresh_interval"):
+            self.overlay_widget.set_refresh_interval(max(200, ms // 2))
 
     def toggle_overlay(self):
         if self.overlay_widget.isVisible():

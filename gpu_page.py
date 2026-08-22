@@ -40,9 +40,12 @@ class GPUPerformancePage(CarbonFiberBackground):
         self.setup_ui()
 
         self.timer = QTimer(self)
-        self.timer.setInterval(1000)
+        self.timer.setInterval(500)
         self.timer.timeout.connect(self.update_telemetry)
         self.timer.start()
+
+    def set_refresh_interval(self, ms):
+        self.timer.setInterval(ms)
 
     def pause_timer(self):
         if self.timer.isActive():

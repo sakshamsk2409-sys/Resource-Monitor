@@ -841,11 +841,11 @@ class DashboardPage(CarbonFiberBackground):
             self.update_data
         )
 
-        self.timer.start(
-            1000
-        )
-
+        self.timer.start(500)
         self.update_data()
+
+    def set_refresh_interval(self, ms):
+        self.timer.setInterval(ms)
 
     # =====================================================
     # SETUP UI
