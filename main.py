@@ -20,6 +20,8 @@ from gpu_page import GPUPerformancePage
 from process_manager import ProcessManagerPage
 from network_disk_page import NetworkDiskPage
 from report_exporter import export_system_report
+from mini_overlay import MiniOverlayWidget
+from benchmark_page import BenchmarkPage
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QComboBox, QMessageBox, QFileDialog
 import psutil
@@ -30,14 +32,11 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle(
-            "System Resource Monitor"
-        )
+        self.setWindowTitle("System Resource Monitor")
+        self.resize(1400, 850)
 
-        self.resize(
-            1400,
-            850
-        )
+        # Mini overlay instance
+        self.overlay_widget = MiniOverlayWidget()
 
         self.setup_ui()
 
@@ -149,6 +148,10 @@ class MainWindow(QMainWindow):
             "Process Manager"
         )
 
+        self.benchmark_button = QPushButton(
+            "Benchmark & Stress Test"
+        )
+
         buttons = [
             self.dashboard_button,
             self.memory_button,
@@ -156,6 +159,7 @@ class MainWindow(QMainWindow):
             self.gpu_button,
             self.net_disk_button,
             self.process_button,
+            self.benchmark_button,
         ]
 
         for button in buttons:
@@ -183,6 +187,26 @@ class MainWindow(QMainWindow):
         """)
         self.export_btn.clicked.connect(self.trigger_export_report)
         sidebar_layout.addWidget(self.export_btn)
+
+        # Mini Overlay Toggle Button
+        self.overlay_btn = QPushButton("📌 Toggle Floating Overlay")
+        self.overlay_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0d0d0d;
+                color: #26a69a;
+                border: 1px solid #333333;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #26a69a;
+                color: #000000;
+            }
+        """)
+        self.overlay_btn.clicked.connect(self.toggle_overlay)
+        sidebar_layout.addWidget(self.overlay_btn)
 
         sidebar_layout.addStretch()
 
@@ -219,6 +243,8 @@ class MainWindow(QMainWindow):
 
         self.process_page = ProcessManagerPage()
 
+        self.benchmark_page = BenchmarkPage()
+
         # =================================================
         # ADD PAGES
         # =================================================
@@ -247,6 +273,10 @@ class MainWindow(QMainWindow):
             self.process_page
         )
 
+        self.pages.addWidget(
+            self.benchmark_page
+        )
+
         # =================================================
         # NAVIGATION CONNECTIONS
         # =================================================
@@ -273,6 +303,10 @@ class MainWindow(QMainWindow):
 
         self.process_button.clicked.connect(
             lambda: self.change_page(5)
+        )
+
+        self.benchmark_button.clicked.connect(
+            lambda: self.change_page(6)
         )
 
 
@@ -321,6 +355,7 @@ class MainWindow(QMainWindow):
             self.gpu_button,
             self.net_disk_button,
             self.process_button,
+            self.benchmark_button,
         ]
 
         # -------------------------------------------------
@@ -364,6 +399,12 @@ class MainWindow(QMainWindow):
     # =================================================
     # PLACEHOLDER PAGE
     # =================================================
+
+    def toggle_overlay(self):
+        if self.overlay_widget.isVisible():
+            self.overlay_widget.hide()
+        else:
+            self.overlay_widget.show()
 
     def trigger_export_report(self):
         try:

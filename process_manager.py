@@ -249,8 +249,15 @@ class ProcessManagerPage(CarbonFiberBackground):
             pid_item.setForeground(QColor("#ffffff"))
 
             # Name
-            name_item = QTableWidgetItem(item["name"])
-            name_item.setForeground(QColor("#e0e0e0"))
+            proc_name = item["name"]
+            if item["cpu"] > 15:
+                proc_name = f"🔥 {proc_name}"
+            elif item["rss_mb"] > 500:
+                proc_name = f"💾 {proc_name}"
+
+            name_item = QTableWidgetItem(proc_name)
+            name_color = "#e53935" if item["cpu"] > 15 else ("#ff8f00" if item["rss_mb"] > 500 else "#e0e0e0")
+            name_item.setForeground(QColor(name_color))
             name_item.setFont(QFont("Segoe UI", 9, QFont.Bold))
 
             # Status
