@@ -33,6 +33,15 @@ class ProcessManagerPage(CarbonFiberBackground):
         self.timer.timeout.connect(self.refresh_processes)
         self.timer.start()
 
+    def pause_timer(self):
+        if self.timer.isActive():
+            self.timer.stop()
+
+    def resume_timer(self):
+        if not self.timer.isActive():
+            self.refresh_processes()
+            self.timer.start()
+
         # Initial data load
         self.refresh_processes()
 

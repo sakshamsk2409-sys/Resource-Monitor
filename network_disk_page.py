@@ -42,6 +42,14 @@ class NetworkDiskPage(CarbonFiberBackground):
         self.timer.timeout.connect(self.update_telemetry)
         self.timer.start()
 
+    def pause_timer(self):
+        if self.timer.isActive():
+            self.timer.stop()
+
+    def resume_timer(self):
+        if not self.timer.isActive():
+            self.timer.start()
+
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(35, 30, 35, 30)

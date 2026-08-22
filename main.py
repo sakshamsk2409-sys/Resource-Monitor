@@ -305,6 +305,15 @@ class MainWindow(QMainWindow):
             index
         )
 
+        for i in range(self.pages.count()):
+            page_widget = self.pages.widget(i)
+            if i == index:
+                if hasattr(page_widget, "resume_timer"):
+                    page_widget.resume_timer()
+            else:
+                if hasattr(page_widget, "pause_timer"):
+                    page_widget.pause_timer()
+
         buttons = [
             self.dashboard_button,
             self.memory_button,
@@ -384,6 +393,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    def create_placeholder(self, title):
         page = QWidget()
 
         layout = QVBoxLayout(

@@ -44,6 +44,14 @@ class GPUPerformancePage(CarbonFiberBackground):
         self.timer.timeout.connect(self.update_telemetry)
         self.timer.start()
 
+    def pause_timer(self):
+        if self.timer.isActive():
+            self.timer.stop()
+
+    def resume_timer(self):
+        if not self.timer.isActive():
+            self.timer.start()
+
     def init_gpu(self):
         if HAS_PYNVML and pynvml:
             try:

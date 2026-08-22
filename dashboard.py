@@ -142,41 +142,35 @@ class PerformanceGauge(QWidget):
         self.redline = redline
 
         self.value = minimum
+        self.target_value = minimum
+        self.display_value = minimum
 
-        self.setMinimumSize(
-            250,
-            250
-        )
+        self.setMinimumSize(250, 250)
+        self.setSizePolicy(self.sizePolicy())
+        self.setAttribute(Qt.WA_TranslucentBackground)
 
-        self.setSizePolicy(
-            self.sizePolicy()
-        )
-
-        self.setAttribute(
-            Qt.WA_TranslucentBackground
-        )
-
-    # =====================================================
-    # SET VALUE
-    # =====================================================
+        # Smooth animation timer (30ms ~ 33 FPS smooth step)
+        self.anim_timer = QTimer(self)
+        self.anim_timer.setInterval(30)
+        self.anim_timer.timeout.connect(self.animate_smooth_step)
+        self.anim_timer.start()
 
     def setValue(self, value):
-
         if value is None:
-
-            self.value = self.minimum
-
+            self.target_value = self.minimum
         else:
+            self.target_value = max(self.minimum, min(self.maximum, float(value)))
 
-            self.value = max(
-                self.minimum,
-                min(
-                    self.maximum,
-                    float(value)
-                )
-            )
-
-        self.update()
+    def animate_smooth_step(self):
+        diff = self.target_value - self.display_value
+        if abs(diff) > 0.02:
+            self.display_value += diff * 0.18
+            self.value = self.display_value
+            self.update()
+        elif self.display_value != self.target_value:
+            self.display_value = self.target_value
+            self.value = self.display_value
+            self.update()
 
     # =====================================================
     # VALUE COLOR
