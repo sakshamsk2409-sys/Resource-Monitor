@@ -860,57 +860,22 @@ class MemoryPage(QWidget):
         # GET ALL RUNNING PROCESSES
         # =================================================
 
-        for process in psutil.process_iter(
-            [
-                "name",
-                "memory_info"
-            ]
-        ):
-
+        for process in psutil.process_iter():
             try:
+                name = process.name()
+                memory_info = process.memory_info()
 
-                name = process.info.get(
-                    "name"
-                )
-
-                memory_info = (
-                    process.info.get(
-                        "memory_info"
-                    )
-                )
-
-                if not name:
-                    continue
-
-                if not memory_info:
+                if not name or not memory_info:
                     continue
 
                 rss = memory_info.rss
-
                 if rss <= 0:
                     continue
 
-                # -----------------------------------------
-                # GROUP SAME PROCESS NAMES
-                # -----------------------------------------
-
                 name = name.strip()
+                processes[name] = processes.get(name, 0) + rss
 
-                processes[name] = (
-                    processes.get(
-                        name,
-                        0
-                    )
-                    + rss
-                )
-
-            except (
-                psutil.NoSuchProcess,
-                psutil.AccessDenied,
-                psutil.ZombieProcess,
-                OSError,
-            ):
-
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, PermissionError, OSError, Exception):
                 continue
 
         # =================================================

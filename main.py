@@ -17,6 +17,12 @@ from dashboard import DashboardPage
 from memory import MemoryPage
 from system_config import SystemConfigPage
 from gpu_page import GPUPerformancePage
+from process_manager import ProcessManagerPage
+from network_disk_page import NetworkDiskPage
+from report_exporter import export_system_report
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QComboBox, QMessageBox, QFileDialog
+import psutil
 
 
 class MainWindow(QMainWindow):
@@ -135,40 +141,61 @@ class MainWindow(QMainWindow):
             "GPU Performance"
         )
 
+        self.net_disk_button = QPushButton(
+            "Network & Disk I/O"
+        )
+
+        self.process_button = QPushButton(
+            "Process Manager"
+        )
+
         buttons = [
             self.dashboard_button,
             self.memory_button,
             self.system_button,
             self.gpu_button,
+            self.net_disk_button,
+            self.process_button,
         ]
 
         for button in buttons:
+            button.setObjectName("nav_button")
+            sidebar_layout.addWidget(button)
 
-            button.setObjectName(
-                "nav_button"
-            )
+        sidebar_layout.addSpacing(15)
 
-            sidebar_layout.addWidget(
-                button
-            )
+        # Quick Export Button
+        self.export_btn = QPushButton("📄 Export Diagnostic Report")
+        self.export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0d0d0d;
+                color: #ff8f00;
+                border: 1px solid #333333;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #ff8f00;
+                color: #000000;
+            }
+        """)
+        self.export_btn.clicked.connect(self.trigger_export_report)
+        sidebar_layout.addWidget(self.export_btn)
 
         sidebar_layout.addStretch()
 
-        # =================================================
-        # STATUS
-        # =================================================
+        # Alert & Monitoring Status
+        self.status = QLabel("●  MONITORING ACTIVE")
+        self.status.setObjectName("status")
+        sidebar_layout.addWidget(self.status)
 
-        status = QLabel(
-            "●  MONITORING ACTIVE"
-        )
-
-        status.setObjectName(
-            "status"
-        )
-
-        sidebar_layout.addWidget(
-            status
-        )
+        # Alert Check Timer
+        self.alert_timer = QTimer(self)
+        self.alert_timer.setInterval(2000)
+        self.alert_timer.timeout.connect(self.check_resource_alerts)
+        self.alert_timer.start()
 
         # =================================================
         # PAGE STACK
@@ -187,6 +214,10 @@ class MainWindow(QMainWindow):
         self.system_page = SystemConfigPage()
 
         self.gpu_page = GPUPerformancePage()
+
+        self.net_disk_page = NetworkDiskPage()
+
+        self.process_page = ProcessManagerPage()
 
         # =================================================
         # ADD PAGES
@@ -208,6 +239,14 @@ class MainWindow(QMainWindow):
             self.gpu_page
         )
 
+        self.pages.addWidget(
+            self.net_disk_page
+        )
+
+        self.pages.addWidget(
+            self.process_page
+        )
+
         # =================================================
         # NAVIGATION CONNECTIONS
         # =================================================
@@ -226,6 +265,14 @@ class MainWindow(QMainWindow):
 
         self.gpu_button.clicked.connect(
             lambda: self.change_page(3)
+        )
+
+        self.net_disk_button.clicked.connect(
+            lambda: self.change_page(4)
+        )
+
+        self.process_button.clicked.connect(
+            lambda: self.change_page(5)
         )
 
 
@@ -263,6 +310,8 @@ class MainWindow(QMainWindow):
             self.memory_button,
             self.system_button,
             self.gpu_button,
+            self.net_disk_button,
+            self.process_button,
         ]
 
         # -------------------------------------------------
@@ -307,10 +356,33 @@ class MainWindow(QMainWindow):
     # PLACEHOLDER PAGE
     # =================================================
 
-    def create_placeholder(
-        self,
-        title
-    ):
+    def trigger_export_report(self):
+        try:
+            html_f, json_f = export_system_report()
+            QMessageBox.information(
+                self,
+                "Report Generated",
+                f"System Diagnostic Report successfully generated!\n\nHTML: {html_f}\nJSON: {json_f}\n\nOpening report in browser..."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to generate report: {e}")
+
+    def check_resource_alerts(self):
+        try:
+            cpu = psutil.cpu_percent(interval=None)
+            ram = psutil.virtual_memory().percent
+
+            if cpu > 85:
+                self.status.setText(f"⚠ HIGH CPU: {cpu:.0f}%")
+                self.status.setStyleSheet("color: #e53935; font-weight: bold; font-size: 10px;")
+            elif ram > 90:
+                self.status.setText(f"⚠ HIGH RAM: {ram:.0f}%")
+                self.status.setStyleSheet("color: #e53935; font-weight: bold; font-size: 10px;")
+            else:
+                self.status.setText("●  MONITORING ACTIVE")
+                self.status.setStyleSheet("color: #55d66f; font-weight: bold; font-size: 10px;")
+        except Exception:
+            pass
 
         page = QWidget()
 
