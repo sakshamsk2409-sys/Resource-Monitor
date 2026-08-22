@@ -37,6 +37,7 @@ class MainWindow(QMainWindow):
 
         # Mini overlay instance
         self.overlay_widget = MiniOverlayWidget()
+        self._active_page_index = None
 
         self.setup_ui()
 
@@ -369,6 +370,8 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndex(
             index
         )
+
+        self._active_page_index = index
 
         for i in range(self.pages.count()):
             page_widget = self.pages.widget(i)
