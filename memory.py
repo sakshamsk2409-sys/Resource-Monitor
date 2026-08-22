@@ -1,7 +1,7 @@
 import psutil
 import pyqtgraph as pg
 
-from PySide6.QtCore import QTimer, Qt, QRectF
+from PySide6.QtCore import QTimer, Qt, QRectF, QFileInfo
 from PySide6.QtGui import (
     QPainter,
     QColor,
@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QFrame,
+    QApplication,
+    QFileIconProvider,
+    QStyle,
     QScrollArea,
 )
 
@@ -863,6 +866,7 @@ class MemoryPage(QWidget):
     ):
 
         processes = {}
+        process_icons = {}
 
         # =================================================
         # GET ALL RUNNING PROCESSES
@@ -881,7 +885,15 @@ class MemoryPage(QWidget):
                     continue
 
                 name = name.strip()
+                if name.lower().endswith(".exe"):
+                    name = name[:-4]
                 processes[name] = processes.get(name, 0) + rss
+
+                if name not in process_icons:
+                    try:
+                        process_icons[name] = process.exe()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, PermissionError, OSError):
+                        process_icons[name] = ""
 
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, PermissionError, OSError, Exception):
                 continue
@@ -904,6 +916,12 @@ class MemoryPage(QWidget):
             sorted_processes[
                 :self.max_apps
             ]
+        )
+
+        max_memory = (
+            top_processes[0][1]
+            if top_processes
+            else 0
         )
 
         # =================================================
@@ -931,14 +949,27 @@ class MemoryPage(QWidget):
             top_processes
         ):
 
+            color = APP_COLORS[
+                index
+                % len(APP_COLORS)
+            ]
+
+            if max_memory > 0:
+                base_color = QColor(color)
+                red_color = QColor("#e53935")
+                intensity = memory / max_memory
+                color = QColor(
+                    int(base_color.red() * (1 - intensity) + red_color.red() * intensity),
+                    int(base_color.green() * (1 - intensity) + red_color.green() * intensity),
+                    int(base_color.blue() * (1 - intensity) + red_color.blue() * intensity),
+                ).name()
+
             chart_data.append(
                 {
                     "name": name,
                     "value": memory,
-                    "color": APP_COLORS[
-                        index
-                        % len(APP_COLORS)
-                    ],
+                    "icon_path": process_icons.get(name, ""),
+                    "color": color,
                 }
             )
 
@@ -1097,6 +1128,25 @@ class MemoryPage(QWidget):
 
             row_layout.addWidget(
                 color_box
+            )
+
+            # APPLICATION ICON
+            icon_path = item.get("icon_path", "")
+            if icon_path:
+                app_icon = QFileIconProvider().icon(
+                    QFileInfo(icon_path)
+                )
+            else:
+                app_icon = QApplication.style().standardIcon(
+                    QStyle.SP_ComputerIcon
+                )
+
+            icon_label = QLabel()
+            icon_label.setPixmap(
+                app_icon.pixmap(20, 20)
+            )
+            row_layout.addWidget(
+                icon_label
             )
 
             # =================================================
