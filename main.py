@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
 
 from dashboard import DashboardPage
 from memory import MemoryPage
+from system_config import SystemConfigPage
+from gpu_page import GPUPerformancePage
 
 
 class MainWindow(QMainWindow):
@@ -182,17 +184,9 @@ class MainWindow(QMainWindow):
 
         self.memory_page = MemoryPage()
 
-        # =================================================
-        # TEMPORARY TEAMMATE PAGES
-        # =================================================
+        self.system_page = SystemConfigPage()
 
-        self.system_page = self.create_placeholder(
-            "System Configuration"
-        )
-
-        self.gpu_page = self.create_placeholder(
-            "GPU Performance"
-        )
+        self.gpu_page = GPUPerformancePage()
 
         # =================================================
         # ADD PAGES
