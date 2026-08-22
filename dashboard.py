@@ -20,6 +20,12 @@ from PySide6.QtCore import (
     QTimer,
     QRectF,
     QPointF,
+    Property,
+    QPropertyAnimation,
+    QSequentialAnimationGroup,
+    QParallelAnimationGroup,
+    QPauseAnimation,
+    QEasingCurve,
 )
 from PySide6.QtGui import (
     QPainter,
@@ -148,6 +154,8 @@ class PerformanceGauge(QWidget):
         self.value = minimum
         self.target_value = minimum
         self.display_value = minimum
+        self.startup_active = False
+        self.startup_progress = 0.0
 
         self.setMinimumSize(250, 250)
         self.setSizePolicy(self.sizePolicy())
@@ -165,7 +173,76 @@ class PerformanceGauge(QWidget):
         else:
             self.target_value = max(self.minimum, min(self.maximum, float(value)))
 
+    def get_startup_progress(self):
+        return self.startup_progress
+
+    def set_startup_progress(self, progress):
+        self.startup_progress = progress
+
+        if progress <= 1.0:
+            self.display_value = self.minimum + (
+                self.maximum - self.minimum
+            ) * progress
+        else:
+            upper_value = self.minimum + (
+                self.maximum - self.minimum
+            ) * 0.92
+            self.display_value = upper_value + (
+                self.target_value - upper_value
+            ) * (progress - 1.0)
+
+        self.value = self.display_value
+        self.update()
+
+    startupProgress = Property(
+        float,
+        get_startup_progress,
+        set_startup_progress
+    )
+
+    def startup_sweep(self, duration=2000):
+        self.startup_active = True
+        self.startup_progress = 0.0
+        self.display_value = self.minimum
+        self.value = self.minimum
+        self.update()
+
+        sweep_up = QPropertyAnimation(
+            self,
+            b"startupProgress"
+        )
+        sweep_up.setDuration(int(duration * 0.36))
+        sweep_up.setStartValue(0.0)
+        sweep_up.setEndValue(1.0)
+        sweep_up.setEasingCurve(QEasingCurve.InOutCubic)
+
+        return_sweep = QPropertyAnimation(
+            self,
+            b"startupProgress"
+        )
+        return_sweep.setDuration(int(duration * 0.55))
+        return_sweep.setStartValue(1.0)
+        return_sweep.setEndValue(2.0)
+        return_sweep.setEasingCurve(QEasingCurve.InOutCubic)
+
+        animation = QSequentialAnimationGroup(self)
+        animation.addAnimation(sweep_up)
+        animation.addAnimation(QPauseAnimation(int(duration * 0.09)))
+        animation.addAnimation(return_sweep)
+        animation.finished.connect(self.finish_startup_sweep)
+        return animation
+
+    def finish_startup_sweep(self):
+        self.startup_active = False
+        self.startup_progress = 0.0
+        self.display_value = self.target_value
+        self.value = self.display_value
+        self.update()
+
     def animate_smooth_step(self):
+        if self.startup_active:
+            return
+
         diff = self.target_value - self.display_value
         if abs(diff) > 0.02:
             self.display_value += diff * 0.18
@@ -850,6 +927,39 @@ class DashboardPage(CarbonFiberBackground):
 
     def set_refresh_interval(self, ms):
         self.timer.setInterval(ms)
+
+    def activate_cockpit(self):
+        gauges = [
+            self.cpu_gauge,
+            self.cpu_temp_gauge,
+            self.ram_gauge,
+            self.temp_gauge,
+        ]
+
+        if hasattr(self, "startup_animation"):
+            self.startup_animation.stop()
+            self.startup_animation.deleteLater()
+
+        self.startup_animation = QParallelAnimationGroup(self)
+
+        for gauge in gauges:
+            self.startup_animation.addAnimation(
+                gauge.startup_sweep()
+            )
+
+        self.startup_animation.finished.connect(
+            self.finish_cockpit_startup
+        )
+        self.startup_animation.start()
+
+    def finish_cockpit_startup(self):
+        for gauge in (
+            self.cpu_gauge,
+            self.cpu_temp_gauge,
+            self.ram_gauge,
+            self.temp_gauge,
+        ):
+            gauge.finish_startup_sweep()
 
     # =====================================================
     # SETUP UI

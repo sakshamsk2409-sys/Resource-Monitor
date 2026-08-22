@@ -183,3 +183,4 @@ cython_debug/
 
 # Local hardware-monitoring service (installed per machine)
 .tools/
+*.json

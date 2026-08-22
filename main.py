@@ -367,9 +367,17 @@ class MainWindow(QMainWindow):
         index
     ):
 
+        cockpit_activated = (
+            index == 0
+            and self._active_page_index != 0
+        )
+
         self.pages.setCurrentIndex(
             index
         )
+
+        if cockpit_activated:
+            self.dashboard_page.activate_cockpit()
 
         self._active_page_index = index
 
