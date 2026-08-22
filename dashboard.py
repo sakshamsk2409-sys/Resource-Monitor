@@ -2,7 +2,14 @@ import math
 
 import psutil
 import pyqtgraph as pg
-import pynvml
+
+try:
+    import pynvml
+    HAS_PYNVML = True
+except ImportError:
+    pynvml = None
+    HAS_PYNVML = False
+
 
 from PySide6.QtCore import (
     Qt,
@@ -773,71 +780,32 @@ class DashboardPage(CarbonFiberBackground):
         # =================================================
 
         self.gpu_available = False
-
         self.gpu_handle = None
+        self.gpu_name = "N/A"
 
-        try:
+        if HAS_PYNVML and pynvml:
+            try:
+                pynvml.nvmlInit()
+                gpu_count = pynvml.nvmlDeviceGetCount()
 
-            pynvml.nvmlInit()
+                if gpu_count > 0:
+                    self.gpu_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+                    self.gpu_available = True
+                    try:
+                        gpu_name = pynvml.nvmlDeviceGetName(self.gpu_handle)
+                        if isinstance(gpu_name, bytes):
+                            gpu_name = gpu_name.decode("utf-8", errors="ignore")
+                        self.gpu_name = str(gpu_name)
+                    except Exception:
+                        self.gpu_name = "NVIDIA GPU"
+                else:
+                    self.gpu_name = "NO NVIDIA GPU"
 
-            gpu_count = (
-                pynvml.nvmlDeviceGetCount()
-            )
-
-            if gpu_count > 0:
-
-                self.gpu_handle = (
-                    pynvml.nvmlDeviceGetHandleByIndex(
-                        0
-                    )
-                )
-
-                self.gpu_available = True
-
-                try:
-
-                    gpu_name = (
-                        pynvml.nvmlDeviceGetName(
-                            self.gpu_handle
-                        )
-                    )
-
-                    if isinstance(
-                        gpu_name,
-                        bytes
-                    ):
-
-                        gpu_name = (
-                            gpu_name.decode(
-                                "utf-8",
-                                errors="ignore"
-                            )
-                        )
-
-                    self.gpu_name = str(
-                        gpu_name
-                    )
-
-                except pynvml.NVMLError:
-
-                    self.gpu_name = (
-                        "NVIDIA GPU"
-                    )
-
-            else:
-
-                self.gpu_name = (
-                    "NO NVIDIA GPU"
-                )
-
-        except pynvml.NVMLError as error:
-
-            print(
-                "NVML initialization failed:",
-                error
-            )
-
-            self.gpu_available = False
+            except Exception as error:
+                print("NVML initialization failed:", error)
+                self.gpu_available = False
+        else:
+            self.gpu_name = "NVML NOT INSTALLED"
 
             self.gpu_name = (
                 "NVIDIA GPU NOT DETECTED"
@@ -1409,7 +1377,7 @@ class DashboardPage(CarbonFiberBackground):
                     utilization.gpu
                 )
 
-            except pynvml.NVMLError:
+            except Exception:
 
                 gpu_usage = (
                     self.gpu_history[-1]
@@ -1430,7 +1398,7 @@ class DashboardPage(CarbonFiberBackground):
                     )
                 )
 
-            except pynvml.NVMLError:
+            except Exception:
 
                 gpu_temperature = None
 
@@ -1454,7 +1422,7 @@ class DashboardPage(CarbonFiberBackground):
                     memory_info.total
                 )
 
-            except pynvml.NVMLError:
+            except Exception:
 
                 pass
 
@@ -1471,7 +1439,7 @@ class DashboardPage(CarbonFiberBackground):
                     / 1000
                 )
 
-            except pynvml.NVMLError:
+            except Exception:
 
                 pass
 
