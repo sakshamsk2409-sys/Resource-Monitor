@@ -38,18 +38,6 @@ from dashboard import CarbonFiberBackground
 
 
 APP_COLORS = [
-<<<<<<< Updated upstream
-    "#ef4444",   # Red
-    "#2563eb",   # Blue
-    "#22c55e",   # Green
-    "#a855f7",   # Purple
-    "#facc15",   # Yellow
-    "#06b6d4",   # Cyan
-    "#f97316",   # Orange
-    "#ec4899",   # Pink
-    "#14b8a6",   # Teal
-    "#8b5cf6",   # Violet
-=======
     "#e53935",
     "#ff8f00",
     "#8bc34a",
@@ -60,7 +48,6 @@ APP_COLORS = [
     "#ec407a",
     "#7cb342",
     "#ffa726",
->>>>>>> Stashed changes
 ]
 
 DONUT_WIDTH = 30
@@ -448,21 +435,10 @@ class MemoryDonut(QWidget):
         center_x = width / 2
         center_y = height / 2
 
-<<<<<<< Updated upstream
-        # =================================================
-        # DONUT SIZE
-        # =================================================
-
-        diameter = min(
-            width,
-            height
-        ) * 0.82
-=======
         diameter = (
             min(width, height)
             * 0.72
         )
->>>>>>> Stashed changes
 
         rect = QRectF(
             center_x - diameter / 2,
@@ -475,16 +451,8 @@ class MemoryDonut(QWidget):
             QColor("#252525")
         )
 
-<<<<<<< Updated upstream
-        background_pen.setWidth(DONUT_WIDTH)
-
-        background_pen.setCapStyle(
-            Qt.FlatCap
-        )
-=======
         background_pen.setWidth(24)
         background_pen.setCapStyle(Qt.FlatCap)
->>>>>>> Stashed changes
 
         painter.setPen(
             background_pen
@@ -572,12 +540,6 @@ class MemoryDonut(QWidget):
             )
 
             if is_hovered:
-<<<<<<< Updated upstream
-                glow_pen = QPen(QColor(color.red(), color.green(), color.blue(), 55))
-                glow_pen.setWidth(40)
-                painter.setPen(glow_pen)
-                painter.drawArc(slice_rect, int(start_angle), int(span_angle))
-=======
 
                 glow_pen = QPen(
                     QColor(
@@ -589,21 +551,16 @@ class MemoryDonut(QWidget):
                 )
 
                 glow_pen.setWidth(34)
->>>>>>> Stashed changes
 
                 painter.setPen(
                     glow_pen
                 )
 
-<<<<<<< Updated upstream
-            pen.setWidth(DONUT_WIDTH)
-=======
                 painter.drawArc(
                     slice_rect,
                     int(start_angle),
                     int(span_angle)
                 )
->>>>>>> Stashed changes
 
             pen = QPen(color)
 
@@ -620,17 +577,16 @@ class MemoryDonut(QWidget):
 
             start_angle += span_angle
 
-<<<<<<< Updated upstream
+# <<<<<<< Updated upstream
         # =================================================
         # INNER BLACK CIRCLE
         # =================================================
 
         inner_diameter = diameter - (DONUT_WIDTH * 2)
-=======
+
         inner_diameter = (
             diameter - 48
         )
->>>>>>> Stashed changes
 
         inner_rect = QRectF(
             center_x - inner_diameter / 2,
@@ -1504,17 +1460,11 @@ class MemoryPage(CarbonFiberBackground):
                 top_processes
             )
 
-<<<<<<< Updated upstream
-        # =================================================
-        # EVERYTHING ELSE
-        # =================================================
-=======
         max_memory = (
             top_processes[0]["value"]
             if top_processes
             else 0
         )
->>>>>>> Stashed changes
 
         other_memory = sum(
             item["value"]
@@ -1538,8 +1488,6 @@ class MemoryPage(CarbonFiberBackground):
                 % len(APP_COLORS)
             ]
 
-<<<<<<< Updated upstream
-=======
             if max_memory > 0:
 
                 base_color = QColor(
@@ -1576,7 +1524,6 @@ class MemoryPage(CarbonFiberBackground):
                     ),
                 ).name()
 
->>>>>>> Stashed changes
             chart_data.append(
                 {
                     "name": name,
