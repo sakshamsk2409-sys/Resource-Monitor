@@ -29,7 +29,7 @@ class ProcessManagerPage(CarbonFiberBackground):
         self.setup_ui()
 
         self.timer = QTimer(self)
-        self.timer.setInterval(1000)
+        self.timer.setInterval(2000)
         self.timer.timeout.connect(self.refresh_processes)
         self.timer.start()
 
@@ -45,8 +45,6 @@ class ProcessManagerPage(CarbonFiberBackground):
             self.refresh_processes()
             self.timer.start()
 
-        # Initial data load
-        self.refresh_processes()
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -191,11 +189,12 @@ class ProcessManagerPage(CarbonFiberBackground):
         new_data = []
         total_ram = psutil.virtual_memory().total
 
-        for proc in psutil.process_iter():
+        for proc in psutil.process_iter(["pid","name","status","cpu_percent","memory_info","username",]):
+        
             try:
-                pid = proc.pid
-                name = proc.name() or "N/A"
-                status = proc.status() or "N/A"
+                pid = proc.info["pid"]
+                name = proc.info["name"] or "N/A"
+                status = proc.info["status"] or "N/A"
                 
                 # Fetch cpu & memory safely
                 try:
