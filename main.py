@@ -547,6 +547,7 @@ if __name__ == "__main__":
             letter-spacing: 2px;
             background: transparent;
             border: none;
+            font-family: "Orbitron", "Segoe UI", sans-serif;
         }
 
         #cockpit_subtitle {
@@ -614,7 +615,16 @@ if __name__ == "__main__":
     QWidget {
         background-color: #050505;
         color: #d8d8d8;
-        font-family: "Segoe UI";
+        font-family: "Orbitron", "Segoe UI", sans-serif;
+    }
+
+    #cockpit_title,
+    #page_title,
+    #section_title,
+    #telemetry_title,
+    #telemetry_label,
+    #logo {
+        font-family: "Orbitron", "Segoe UI", sans-serif;
     }
 
 
@@ -676,6 +686,7 @@ if __name__ == "__main__":
         font-weight: bold;
         background: transparent;
         border: none;
+        font-family: "Orbitron", "Segoe UI", sans-serif;
     }
 
     #subtitle {
@@ -718,6 +729,7 @@ if __name__ == "__main__":
         font-weight: bold;
         background: transparent;
         border: none;
+        font-family: "Orbitron", "Segoe UI", sans-serif;
     }
 
 
@@ -748,6 +760,11 @@ if __name__ == "__main__":
     #application_row:hover {
         background-color: #151515;
         border: 1px solid #3a3a3a;
+    }
+
+    #application_row[active="true"] {
+        background-color: #1b1b1b;
+        border: 1px solid #666666;
     }
 
     #app_name {
