@@ -1431,10 +1431,19 @@ class DashboardPage(CarbonFiberBackground):
 
         self.gauge_refresh_settings = dict(self.gauge_presets[self.current_preset])
 
-    def save_gauge_presets(self):
+    def save_gauge_presets(self, preset_number=None):
+        if preset_number is None:
+            preset_number = self.current_preset
+
         data = {}
-        for preset_number, values in self.gauge_presets.items():
-            data[str(preset_number)] = {key: int(value) for key, value in values.items()}
+        for saved_preset_number, values in self.gauge_presets.items():
+            data[str(saved_preset_number)] = {key: int(value) for key, value in values.items()}
+
+        if preset_number in self.gauge_presets:
+            data[str(preset_number)] = {
+                key: int(value)
+                for key, value in self.gauge_presets[preset_number].items()
+            }
 
         try:
             with open(self.preset_path, "w", encoding="utf-8") as preset_file:
@@ -1478,10 +1487,7 @@ class DashboardPage(CarbonFiberBackground):
 
         save_button = QPushButton("Save")
         save_button.clicked.connect(
-            lambda: (
-                self.apply_gauge_preset(preset_combo.currentIndex() + 1),
-                self.save_gauge_presets(),
-            )
+            lambda: self.save_gauge_presets(self.current_preset)
         )
 
         preset_row.addWidget(preset_label)
@@ -1522,7 +1528,7 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         save_button.clicked.connect(
-            lambda: self.save_gauge_presets()
+            lambda: self.save_gauge_presets(self.current_preset)
         )
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok, dialog)
