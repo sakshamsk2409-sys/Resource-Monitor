@@ -26,17 +26,19 @@ from PySide6.QtWidgets import (
 from dashboard import CarbonFiberBackground
 
 APP_COLORS = [
-    "#e53935",   # Red
-    "#ff8f00",   # Orange
-    "#8bc34a",   # Green
-    "#ab47bc",   # Purple
-    "#fdd835",   # Yellow
-    "#ef5350",   # Light red
-    "#26a69a",   # Teal
-    "#ec407a",   # Pink
-    "#7cb342",   # Lime
-    "#ffa726",   # Amber
+    "#ef4444",   # Red
+    "#2563eb",   # Blue
+    "#22c55e",   # Green
+    "#a855f7",   # Purple
+    "#facc15",   # Yellow
+    "#06b6d4",   # Cyan
+    "#f97316",   # Orange
+    "#ec4899",   # Pink
+    "#14b8a6",   # Teal
+    "#8b5cf6",   # Violet
 ]
+
+DONUT_WIDTH = 30
 
 
 # =========================================================
@@ -204,7 +206,7 @@ class MemoryDonut(QWidget):
         diameter = min(
             width,
             height
-        ) * 0.72
+        ) * 0.82
 
         rect = QRectF(
             center_x - diameter / 2,
@@ -221,9 +223,7 @@ class MemoryDonut(QWidget):
             QColor("#252525")
         )
 
-        background_pen.setWidth(
-            24
-        )
+        background_pen.setWidth(DONUT_WIDTH)
 
         background_pen.setCapStyle(
             Qt.FlatCap
@@ -286,7 +286,7 @@ class MemoryDonut(QWidget):
 
             if is_hovered:
                 glow_pen = QPen(QColor(color.red(), color.green(), color.blue(), 55))
-                glow_pen.setWidth(34)
+                glow_pen.setWidth(40)
                 painter.setPen(glow_pen)
                 painter.drawArc(slice_rect, int(start_angle), int(span_angle))
 
@@ -294,9 +294,7 @@ class MemoryDonut(QWidget):
                 color
             )
 
-            pen.setWidth(
-                24
-            )
+            pen.setWidth(DONUT_WIDTH)
 
             pen.setCapStyle(
                 Qt.FlatCap
@@ -318,9 +316,7 @@ class MemoryDonut(QWidget):
         # INNER BLACK CIRCLE
         # =================================================
 
-        inner_diameter = (
-            diameter - 48
-        )
+        inner_diameter = diameter - (DONUT_WIDTH * 2)
 
         inner_rect = QRectF(
             center_x - inner_diameter / 2,
@@ -583,18 +579,6 @@ class MemoryPage(CarbonFiberBackground):
             12,
             18,
             15
-        )
-
-        donut_title = QLabel(
-            "MEMORY BY APPLICATION"
-        )
-
-        donut_title.setObjectName(
-            "section_title"
-        )
-
-        donut_layout.addWidget(
-            donut_title
         )
 
         self.donut = MemoryDonut()
@@ -1106,12 +1090,6 @@ class MemoryPage(CarbonFiberBackground):
         top_processes = sorted_processes[:self.max_apps]
         visible_processes = sorted_processes if self.view_mode == "all" else top_processes
 
-        max_memory = (
-            top_processes[0][1]
-            if top_processes
-            else 0
-        )
-
         # =================================================
         # EVERYTHING ELSE
         # =================================================
@@ -1141,16 +1119,6 @@ class MemoryPage(CarbonFiberBackground):
                 index
                 % len(APP_COLORS)
             ]
-
-            if max_memory > 0:
-                base_color = QColor(color)
-                red_color = QColor("#e53935")
-                intensity = memory / max_memory
-                color = QColor(
-                    int(base_color.red() * (1 - intensity) + red_color.red() * intensity),
-                    int(base_color.green() * (1 - intensity) + red_color.green() * intensity),
-                    int(base_color.blue() * (1 - intensity) + red_color.blue() * intensity),
-                ).name()
 
             chart_data.append(
                 {
