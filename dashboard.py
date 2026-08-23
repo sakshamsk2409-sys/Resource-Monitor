@@ -708,7 +708,7 @@ class PerformanceGauge(QWidget):
 
         title_rect = QRectF(
             center.x() - 100,
-            center.y() - radius - 3,
+            center.y() - radius + 18,
             200,
             25
         )
@@ -980,6 +980,8 @@ class DashboardPage(CarbonFiberBackground):
             self.cpu_temp_gauge,
             self.ram_gauge,
             self.temp_gauge,
+            self.gpu_0_gauge,
+            self.gpu_1_gauge,
         ]
 
         if hasattr(self, "startup_animation"):
@@ -1004,6 +1006,8 @@ class DashboardPage(CarbonFiberBackground):
             self.cpu_temp_gauge,
             self.ram_gauge,
             self.temp_gauge,
+            self.gpu_0_gauge,
+            self.gpu_1_gauge,
         ):
             gauge.finish_startup_sweep()
 
@@ -1065,22 +1069,6 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         # =================================================
-        # SUBTITLE
-        # =================================================
-
-        subtitle = QLabel(
-            "REAL-TIME VEHICLE-STYLE SYSTEM TELEMETRY"
-        )
-
-        subtitle.setObjectName(
-            "cockpit_subtitle"
-        )
-
-        layout.addWidget(
-            subtitle
-        )
-
-        # =================================================
         # GAUGE ROW 1
         # =================================================
 
@@ -1108,12 +1096,23 @@ class DashboardPage(CarbonFiberBackground):
             redline=85
         )
 
+        self.gpu_0_gauge = PerformanceGauge(
+            title="GPU 0 USAGE",
+            unit="%",
+            accent="#29b6f6",
+            redline=90
+        )
+
         gauge_row_1.addWidget(
             self.cpu_gauge
         )
 
         gauge_row_1.addWidget(
             self.cpu_temp_gauge
+        )
+
+        gauge_row_1.addWidget(
+            self.gpu_0_gauge
         )
 
         layout.addLayout(
@@ -1155,6 +1154,17 @@ class DashboardPage(CarbonFiberBackground):
 
         gauge_row_2.addWidget(
             self.temp_gauge
+        )
+
+        self.gpu_1_gauge = PerformanceGauge(
+            title="GPU 1 USAGE",
+            unit="%",
+            accent="#26c6da",
+            redline=90
+        )
+
+        gauge_row_2.addWidget(
+            self.gpu_1_gauge
         )
 
         layout.addLayout(
@@ -1555,6 +1565,82 @@ class DashboardPage(CarbonFiberBackground):
 
         return max(value for _, value in temperatures)
 
+    def get_lhm_gpu_usage(self):
+
+        """Return live GPU core loads from LibreHardwareMonitor."""
+
+        try:
+            with urlopen(
+                "http://127.0.0.1:8085/data.json",
+                timeout=0.3
+            ) as response:
+                sensor_tree = json.load(response)
+        except (OSError, URLError, ValueError):
+            return []
+
+        gpu_nodes = []
+
+        def find_gpu_nodes(node):
+            if not isinstance(node, dict):
+                return
+
+            hardware_type = str(node.get("HardwareType", "")).lower()
+            node_text = str(node.get("Text", "")).lower()
+            if "gpu" in hardware_type or any(
+                name in node_text
+                for name in (
+                    "nvidia",
+                    "radeon",
+                    "graphics",
+                    "iris",
+                    "uhd graphics",
+                    "arc graphics",
+                )
+            ):
+                gpu_nodes.append(node)
+
+            for child in node.get("Children", []):
+                find_gpu_nodes(child)
+
+        def find_loads(node):
+            loads = []
+            if not isinstance(node, dict):
+                return loads
+
+            sensor_type = str(node.get("Type", "")).lower()
+            sensor_name = str(node.get("Text", "")).lower()
+            if sensor_type == "load" and any(
+                name in sensor_name
+                for name in ("gpu core", "3d", "gpu")
+            ):
+                raw_value = node.get("RawValue", node.get("Value", ""))
+                try:
+                    loads.append((sensor_name, float(str(raw_value).split()[0])))
+                except (AttributeError, IndexError, ValueError):
+                    pass
+
+            for child in node.get("Children", []):
+                loads.extend(find_loads(child))
+            return loads
+
+        find_gpu_nodes(sensor_tree)
+        usage = []
+        for node in gpu_nodes:
+            loads = find_loads(node)
+            if loads:
+                preferred_loads = [
+                    value
+                    for name, value in loads
+                    if name in ("gpu core", "d3d 3d")
+                ]
+                usage.append(
+                    max(preferred_loads if preferred_loads else [
+                        value for _, value in loads
+                    ])
+                )
+
+        return usage[:2]
+
     def get_psutil_cpu_temperature(self):
 
         """Return the best available CPU temperature reported by psutil."""
@@ -1684,6 +1770,7 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         cpu_temperature = self.get_cpu_temperature()
+        gpu_adapter_usage = self.get_lhm_gpu_usage()
 
         # =================================================
         # RAM
@@ -1807,6 +1894,14 @@ class DashboardPage(CarbonFiberBackground):
 
         self.cpu_temp_gauge.setValue(
             cpu_temperature
+        )
+
+        self.gpu_0_gauge.setValue(
+            gpu_adapter_usage[0] if len(gpu_adapter_usage) > 0 else None
+        )
+
+        self.gpu_1_gauge.setValue(
+            gpu_adapter_usage[1] if len(gpu_adapter_usage) > 1 else None
         )
 
         self.ram_gauge.setValue(
