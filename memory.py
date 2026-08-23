@@ -1,7 +1,18 @@
+import math
 import psutil
 import pyqtgraph as pg
 
-from PySide6.QtCore import QTimer, Qt, QRectF, QFileInfo, Signal, QPoint
+from PySide6.QtCore import (
+    QTimer,
+    Qt,
+    QRectF,
+    QFileInfo,
+    Signal,
+    QPoint,
+    QThread,
+    QObject,
+    Slot,
+)
 from PySide6.QtGui import (
     QPainter,
     QColor,
@@ -25,7 +36,9 @@ from PySide6.QtWidgets import (
 
 from dashboard import CarbonFiberBackground
 
+
 APP_COLORS = [
+<<<<<<< Updated upstream
     "#ef4444",   # Red
     "#2563eb",   # Blue
     "#22c55e",   # Green
@@ -36,9 +49,113 @@ APP_COLORS = [
     "#ec4899",   # Pink
     "#14b8a6",   # Teal
     "#8b5cf6",   # Violet
+=======
+    "#e53935",
+    "#ff8f00",
+    "#8bc34a",
+    "#ab47bc",
+    "#fdd835",
+    "#ef5350",
+    "#26a69a",
+    "#ec407a",
+    "#7cb342",
+    "#ffa726",
+>>>>>>> Stashed changes
 ]
 
 DONUT_WIDTH = 30
+
+
+# =========================================================
+# PROCESS MEMORY WORKER
+# =========================================================
+
+class MemoryWorker(QObject):
+
+    finished = Signal(list)
+    request_scan = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.request_scan.connect(self.collect)
+
+    @Slot()
+    def collect(self):
+
+        processes = {}
+
+        try:
+            process_list = psutil.process_iter(
+                ["name", "memory_info", "exe"]
+            )
+
+            for process in process_list:
+
+                try:
+                    info = process.info
+
+                    name = info.get("name")
+                    memory_info = info.get("memory_info")
+
+                    if not name or not memory_info:
+                        continue
+
+                    rss = memory_info.rss
+
+                    if rss <= 0:
+                        continue
+
+                    name = name.strip()
+
+                    if name.lower().endswith(".exe"):
+                        name = name[:-4]
+
+                    if name not in processes:
+                        processes[name] = {
+                            "value": 0,
+                            "icon_path": "",
+                        }
+
+                    processes[name]["value"] += rss
+
+                    if not processes[name]["icon_path"]:
+                        processes[name]["icon_path"] = (
+                            info.get("exe") or ""
+                        )
+
+                except (
+                    psutil.NoSuchProcess,
+                    psutil.AccessDenied,
+                    psutil.ZombieProcess,
+                    PermissionError,
+                    OSError,
+                ):
+                    continue
+
+                except Exception:
+                    continue
+
+        except Exception:
+            processes = {}
+
+        result = []
+
+        for name, data in processes.items():
+
+            result.append(
+                {
+                    "name": name,
+                    "value": data["value"],
+                    "icon_path": data["icon_path"],
+                }
+            )
+
+        result.sort(
+            key=lambda item: item["value"],
+            reverse=True
+        )
+
+        self.finished.emit(result)
 
 
 # =========================================================
@@ -62,7 +179,9 @@ class MemoryDonut(QWidget):
 
         self.animation_timer = QTimer(self)
         self.animation_timer.setInterval(16)
-        self.animation_timer.timeout.connect(self._animate_values)
+        self.animation_timer.timeout.connect(
+            self._animate_values
+        )
 
         self.setMinimumHeight(300)
         self.setMinimumWidth(400)
@@ -70,120 +189,250 @@ class MemoryDonut(QWidget):
         self.setAttribute(
             Qt.WA_TranslucentBackground
         )
-        self.setMouseTracking(True)
 
-    # =====================================================
-    # SET DATA
-    # =====================================================
+        self.setMouseTracking(True)
 
     def set_data(self, data, system_percent=None):
 
         self.data = data
         self.system_percent = system_percent
 
-        active_names = {item["name"] for item in data}
+        active_names = {
+            item["name"]
+            for item in data
+        }
+
         self.display_values = {
             name: value
             for name, value in self.display_values.items()
             if name in active_names
         }
+
         for item in data:
-            self.display_values.setdefault(item["name"], 0)
+            self.display_values.setdefault(
+                item["name"],
+                0
+            )
 
         if self.hovered_name not in active_names:
             self.hovered_name = None
+
         if self.selected_name not in active_names:
             self.selected_name = None
 
         self.update()
+
         if not self.animation_timer.isActive():
-            self.animation_timer.start()
+           self.animation_timer.start()
 
     def set_selected(self, name):
+
         self.selected_name = name
         self.update()
 
     def set_hovered(self, item):
-        self.hovered_name = item["name"] if item else None
+
+        self.hovered_name = (
+            item["name"]
+            if item
+            else None
+        )
+
         self.update()
 
     def _animate_values(self):
+
         moving = False
+
         for item in self.data:
+
             name = item["name"]
-            current = self.display_values.get(name, 0)
+
+            current = self.display_values.get(
+                name,
+                0
+            )
+
             target = item["value"]
+
             if abs(target - current) > 1024:
-                self.display_values[name] = current + (target - current) * 0.22
+
+                self.display_values[name] = (
+                    current
+                    + (target - current) * 0.22
+                )
+
                 moving = True
+
             else:
+
                 self.display_values[name] = target
+
         self.update()
+
         if not moving:
             self.animation_timer.stop()
 
     def _slice_at(self, position):
+
         width = self.width()
         height = self.height()
-        center = QPoint(width // 2, height // 2)
+
+        center = QPoint(
+            width // 2,
+            height // 2
+        )
+
         dx = position.x() - center.x()
         dy = position.y() - center.y()
-        radius = (dx * dx + dy * dy) ** 0.5
-        diameter = min(width, height) * 0.60
-        if radius < diameter * 0.29 or radius > diameter * 0.53:
+
+        radius = math.sqrt(
+            dx * dx + dy * dy
+        )
+
+        diameter = min(
+            width,
+            height
+        ) * 0.60
+
+        if (
+            radius < diameter * 0.29
+            or radius > diameter * 0.53
+        ):
             return None
 
-        total = sum(self.display_values.get(item["name"], item["value"]) for item in self.data)
+        total = sum(
+            self.display_values.get(
+                item["name"],
+                item["value"]
+            )
+            for item in self.data
+        )
+
         if total <= 0:
             return None
 
-        angle = (180 / 3.141592653589793) * __import__("math").atan2(-dy, dx)
-        clockwise_angle = (90 - angle) % 360
+        angle = (
+            180 / math.pi
+        ) * math.atan2(
+            -dy,
+            dx
+        )
+
+        clockwise_angle = (
+            90 - angle
+        ) % 360
+
         cursor = 0
+
         for item in self.data:
-            span = self.display_values.get(item["name"], item["value"]) / total * 360
-            if cursor <= clockwise_angle < cursor + span:
+
+            span = (
+                self.display_values.get(
+                    item["name"],
+                    item["value"]
+                )
+                / total
+                * 360
+            )
+
+            if (
+                cursor
+                <= clockwise_angle
+                < cursor + span
+            ):
                 return item
+
             cursor += span
+
         return None
 
     def mouseMoveEvent(self, event):
-        item = self._slice_at(event.position().toPoint())
-        name = item["name"] if item else None
+
+        item = self._slice_at(
+            event.position().toPoint()
+        )
+
+        name = (
+            item["name"]
+            if item
+            else None
+        )
+
         if name != self.hovered_name:
+
             self.hovered_name = name
-            self.slice_hovered.emit(item)
+
+            self.slice_hovered.emit(
+                item
+            )
+
             self.update()
+
         if item:
-            total = sum(entry["value"] for entry in self.data)
-            percentage = item["value"] / total * 100 if total else 0
+
+            total = sum(
+                entry["value"]
+                for entry in self.data
+            )
+
+            percentage = (
+                item["value"] / total * 100
+                if total
+                else 0
+            )
+
             QToolTip.showText(
-                self.mapToGlobal(event.position().toPoint()),
-                f"<b>{item['name']}</b><br>{item['value'] / (1024 ** 3):.2f} GB RAM<br>{percentage:.1f}% of process memory",
+                self.mapToGlobal(
+                    event.position().toPoint()
+                ),
+                (
+                    f"<b>{item['name']}</b><br>"
+                    f"{item['value'] / (1024 ** 3):.2f} GB RAM<br>"
+                    f"{percentage:.1f}% of process memory"
+                ),
                 self,
             )
+
         else:
+
             QToolTip.hideText()
 
     def leaveEvent(self, event):
+
         self.hovered_name = None
-        self.slice_hovered.emit(None)
+
+        self.slice_hovered.emit(
+            None
+        )
+
         QToolTip.hideText()
+
         self.update()
+
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            item = self._slice_at(event.position().toPoint())
-            if item:
-                self.selected_name = item["name"]
-                self.slice_selected.emit(item)
-                self.update()
-        super().mousePressEvent(event)
 
-    # =====================================================
-    # PAINT DONUT
-    # =====================================================
+        if event.button() == Qt.LeftButton:
+
+            item = self._slice_at(
+                event.position().toPoint()
+            )
+
+            if item:
+
+                self.selected_name = (
+                    item["name"]
+                )
+
+                self.slice_selected.emit(
+                    item
+                )
+
+                self.update()
+
+        super().mousePressEvent(event)
 
     def paintEvent(self, event):
 
@@ -199,6 +448,7 @@ class MemoryDonut(QWidget):
         center_x = width / 2
         center_y = height / 2
 
+<<<<<<< Updated upstream
         # =================================================
         # DONUT SIZE
         # =================================================
@@ -207,6 +457,12 @@ class MemoryDonut(QWidget):
             width,
             height
         ) * 0.82
+=======
+        diameter = (
+            min(width, height)
+            * 0.72
+        )
+>>>>>>> Stashed changes
 
         rect = QRectF(
             center_x - diameter / 2,
@@ -215,19 +471,20 @@ class MemoryDonut(QWidget):
             diameter
         )
 
-        # =================================================
-        # BACKGROUND RING
-        # =================================================
-
         background_pen = QPen(
             QColor("#252525")
         )
 
+<<<<<<< Updated upstream
         background_pen.setWidth(DONUT_WIDTH)
 
         background_pen.setCapStyle(
             Qt.FlatCap
         )
+=======
+        background_pen.setWidth(24)
+        background_pen.setCapStyle(Qt.FlatCap)
+>>>>>>> Stashed changes
 
         painter.setPen(
             background_pen
@@ -239,34 +496,29 @@ class MemoryDonut(QWidget):
             -360 * 16
         )
 
-        # =================================================
-        # TOTAL PROCESS MEMORY
-        # =================================================
-
-        total = sum(item["value"] for item in self.data)
+        total = sum(
+            item["value"]
+            for item in self.data
+        )
 
         if total <= 0:
 
             painter.end()
-
             return
-
-        # =================================================
-        # DRAW APPLICATION ARCS
-        # =================================================
 
         start_angle = 90 * 16
 
         for item in self.data:
 
-            value = self.display_values.get(item["name"], item["value"])
+            value = self.display_values.get(
+                item["name"],
+                item["value"]
+            )
 
             if value <= 0:
                 continue
 
-            percentage = (
-                value / total
-            )
+            percentage = value / total
 
             span_angle = (
                 -360
@@ -274,35 +526,91 @@ class MemoryDonut(QWidget):
                 * 16
             )
 
-            color = QColor(item["color"])
-            is_hovered = item["name"] == self.hovered_name
-            is_selected = item["name"] == self.selected_name
-            offset = 7 if is_hovered else 3 if is_selected else 0
-            angle = (start_angle / 16) - 90
-            import math
-            offset_x = math.cos(math.radians(angle)) * offset
-            offset_y = -math.sin(math.radians(angle)) * offset
-            slice_rect = rect.translated(offset_x, offset_y)
+            color = QColor(
+                item["color"]
+            )
+
+            is_hovered = (
+                item["name"]
+                == self.hovered_name
+            )
+
+            is_selected = (
+                item["name"]
+                == self.selected_name
+            )
+
+            offset = (
+                7
+                if is_hovered
+                else 3
+                if is_selected
+                else 0
+            )
+
+            angle = (
+                start_angle / 16
+            ) - 90
+
+            offset_x = (
+                math.cos(
+                    math.radians(angle)
+                )
+                * offset
+            )
+
+            offset_y = (
+                -math.sin(
+                    math.radians(angle)
+                )
+                * offset
+            )
+
+            slice_rect = rect.translated(
+                offset_x,
+                offset_y
+            )
 
             if is_hovered:
+<<<<<<< Updated upstream
                 glow_pen = QPen(QColor(color.red(), color.green(), color.blue(), 55))
                 glow_pen.setWidth(40)
                 painter.setPen(glow_pen)
                 painter.drawArc(slice_rect, int(start_angle), int(span_angle))
+=======
 
-            pen = QPen(
-                color
-            )
+                glow_pen = QPen(
+                    QColor(
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                        55
+                    )
+                )
 
+                glow_pen.setWidth(34)
+>>>>>>> Stashed changes
+
+                painter.setPen(
+                    glow_pen
+                )
+
+<<<<<<< Updated upstream
             pen.setWidth(DONUT_WIDTH)
+=======
+                painter.drawArc(
+                    slice_rect,
+                    int(start_angle),
+                    int(span_angle)
+                )
+>>>>>>> Stashed changes
 
-            pen.setCapStyle(
-                Qt.FlatCap
-            )
+            pen = QPen(color)
 
-            painter.setPen(
-                pen
-            )
+            pen.setWidth(24)
+            pen.setCapStyle(Qt.FlatCap)
+
+            painter.setPen(pen)
 
             painter.drawArc(
                 slice_rect,
@@ -312,11 +620,17 @@ class MemoryDonut(QWidget):
 
             start_angle += span_angle
 
+<<<<<<< Updated upstream
         # =================================================
         # INNER BLACK CIRCLE
         # =================================================
 
         inner_diameter = diameter - (DONUT_WIDTH * 2)
+=======
+        inner_diameter = (
+            diameter - 48
+        )
+>>>>>>> Stashed changes
 
         inner_rect = QRectF(
             center_x - inner_diameter / 2,
@@ -325,24 +639,44 @@ class MemoryDonut(QWidget):
             inner_diameter
         )
 
-        painter.setPen(
-            Qt.NoPen
-        )
+        painter.setPen(Qt.NoPen)
 
-        painter.setBrush(QBrush(QColor("#090909")))
+        painter.setBrush(
+            QBrush(
+                QColor("#090909")
+            )
+        )
 
         painter.drawEllipse(
             inner_rect
         )
 
-        # =================================================
-        # CENTER VALUE
-        # =================================================
+        hovered_item = next(
+            (
+                item
+                for item in self.data
+                if item["name"]
+                == self.hovered_name
+            ),
+            None
+        )
 
-        hovered_item = next((item for item in self.data if item["name"] == self.hovered_name), None)
-        center_name = hovered_item["name"] if hovered_item else "PROCESS MEMORY"
-        center_value = hovered_item["value"] if hovered_item else total
-        used_gb = center_value / (1024 ** 3)
+        center_name = (
+            hovered_item["name"]
+            if hovered_item
+            else "PROCESS MEMORY"
+        )
+
+        center_value = (
+            hovered_item["value"]
+            if hovered_item
+            else total
+        )
+
+        used_gb = (
+            center_value
+            / (1024 ** 3)
+        )
 
         painter.setPen(
             QColor("#eeeeee")
@@ -369,10 +703,6 @@ class MemoryDonut(QWidget):
             f"{used_gb:.2f} GB"
         )
 
-        # =================================================
-        # CENTER LABEL
-        # =================================================
-
         painter.setPen(
             QColor("#777777")
         )
@@ -398,12 +728,46 @@ class MemoryDonut(QWidget):
         )
 
         if hovered_item:
-            percentage = hovered_item["value"] / total * 100 if total else 0
-            painter.setPen(QColor("#888888"))
-            painter.drawText(QRectF(center_x - 100, center_y + 38, 200, 20), Qt.AlignCenter, f"{percentage:.1f}% OF TOTAL")
+
+            percentage = (
+                hovered_item["value"]
+                / total
+                * 100
+                if total
+                else 0
+            )
+
+            painter.setPen(
+                QColor("#888888")
+            )
+
+            painter.drawText(
+                QRectF(
+                    center_x - 100,
+                    center_y + 38,
+                    200,
+                    20
+                ),
+                Qt.AlignCenter,
+                f"{percentage:.1f}% OF TOTAL"
+            )
+
         elif self.system_percent is not None:
-            painter.setPen(QColor("#555555"))
-            painter.drawText(QRectF(center_x - 100, center_y + 38, 200, 20), Qt.AlignCenter, f"SYSTEM RAM {self.system_percent:.1f}%")
+
+            painter.setPen(
+                QColor("#555555")
+            )
+
+            painter.drawText(
+                QRectF(
+                    center_x - 100,
+                    center_y + 38,
+                    200,
+                    20
+                ),
+                Qt.AlignCenter,
+                f"SYSTEM RAM {self.system_percent:.1f}%"
+            )
 
         painter.end()
 
@@ -418,21 +782,35 @@ class ApplicationMemoryRow(QFrame):
     selected = Signal(object)
 
     def __init__(self, item, parent=None):
+
         super().__init__(parent)
+
         self.item = item
+
         self.setMouseTracking(True)
 
     def enterEvent(self, event):
-        self.hovered.emit(self.item)
+
+        self.hovered.emit(
+            self.item
+        )
+
         super().enterEvent(event)
 
     def leaveEvent(self, event):
+
         self.hovered.emit(None)
+
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
+
         if event.button() == Qt.LeftButton:
-            self.selected.emit(self.item)
+
+            self.selected.emit(
+                self.item
+            )
+
         super().mousePressEvent(event)
 
 
@@ -446,9 +824,9 @@ class MemoryPage(CarbonFiberBackground):
 
         super().__init__()
 
-        # =================================================
-        # RAM HISTORY
-        # =================================================
+        # Cache application icons for the lifetime of the Memory page.
+        self.icon_cache = {}
+        self.icon_provider = QFileIconProvider()
 
         self.max_points = 60
 
@@ -456,50 +834,108 @@ class MemoryPage(CarbonFiberBackground):
             [0] * self.max_points
         )
 
-        # =================================================
-        # APPLICATION SETTINGS
-        # =================================================
-
         self.application_data = []
         self.process_data = []
+
         self.view_mode = "grouped"
 
-        # Number of individual processes/apps
-        # displayed separately.
         self.max_apps = 8
-
-        # =================================================
-        # BUILD UI
-        # =================================================
 
         self.setup_ui()
 
-        # =================================================
-        # UPDATE TIMER
-        # =================================================
+        # -------------------------------------------------
+        # FAST RAM TIMER
+        # -------------------------------------------------
 
-        self.timer = QTimer(
-            self
-        )
+        self.timer = QTimer(self)
 
         self.timer.timeout.connect(
             self.update_memory
         )
 
         self.timer.start(500)
+
+        # -------------------------------------------------
+        # BACKGROUND PROCESS WORKER
+        # -------------------------------------------------
+
+        self.worker_thread = QThread(
+            self
+        )
+
+        self.worker = MemoryWorker()
+
+        self.worker.moveToThread(
+            self.worker_thread
+        )
+
+        self.worker.finished.connect(
+            self.process_memory_data
+        )
+
+        self.worker_thread.start()
+
+        # -------------------------------------------------
+        # PROCESS SCAN TIMER
+        # -------------------------------------------------
+
+        self.scan_timer = QTimer(self)
+
+        self.scan_timer.setInterval(
+            2000
+        )
+
+        self.scan_timer.timeout.connect(
+            self.request_process_scan
+        )
+
+        self.scan_timer.start()
+
+        # Initial RAM update
         self.update_memory()
 
+        # Initial process scan
+        QTimer.singleShot(
+            100,
+            self.request_process_scan
+        )
+
     def set_refresh_interval(self, ms):
+
         self.timer.setInterval(ms)
 
     def pause_timer(self):
+
         if self.timer.isActive():
             self.timer.stop()
 
+        if self.scan_timer.isActive():
+            self.scan_timer.stop()
+
     def resume_timer(self):
+
         if not self.timer.isActive():
             self.update_memory()
             self.timer.start()
+
+        if not self.scan_timer.isActive():
+            self.scan_timer.start()
+
+            QTimer.singleShot(
+                100,
+                self.request_process_scan
+            )
+
+    # =====================================================
+    # REQUEST PROCESS SCAN
+    # =====================================================
+
+    def request_process_scan(self):
+
+        if not self.worker_thread.isRunning():
+            return
+
+        self.worker.request_scan.emit()
 
     # =====================================================
     # SETUP UI
@@ -507,9 +943,7 @@ class MemoryPage(CarbonFiberBackground):
 
     def setup_ui(self):
 
-        layout = QVBoxLayout(
-            self
-        )
+        layout = QVBoxLayout(self)
 
         layout.setContentsMargins(
             30,
@@ -518,17 +952,9 @@ class MemoryPage(CarbonFiberBackground):
             25
         )
 
-        layout.setSpacing(
-            14
-        )
+        layout.setSpacing(14)
 
-        # =================================================
-        # HEADER
-        # =================================================
-
-        title = QLabel(
-            "Memory"
-        )
+        title = QLabel("Memory")
 
         title.setObjectName(
             "page_title"
@@ -542,13 +968,8 @@ class MemoryPage(CarbonFiberBackground):
             "subtitle"
         )
 
-        layout.addWidget(
-            title
-        )
-
-        layout.addWidget(
-            subtitle
-        )
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
 
         # =================================================
         # TOP SECTION
@@ -556,9 +977,7 @@ class MemoryPage(CarbonFiberBackground):
 
         top_section = QHBoxLayout()
 
-        top_section.setSpacing(
-            14
-        )
+        top_section.setSpacing(14)
 
         # =================================================
         # DONUT PANEL
@@ -582,8 +1001,14 @@ class MemoryPage(CarbonFiberBackground):
         )
 
         self.donut = MemoryDonut()
-        self.donut.slice_hovered.connect(self._highlight_application)
-        self.donut.slice_selected.connect(self._select_application)
+
+        self.donut.slice_hovered.connect(
+            self._highlight_application
+        )
+
+        self.donut.slice_selected.connect(
+            self._select_application
+        )
 
         donut_layout.addWidget(
             self.donut
@@ -622,15 +1047,9 @@ class MemoryPage(CarbonFiberBackground):
             app_title
         )
 
-        # =================================================
-        # SCROLL AREA
-        # =================================================
-
         scroll = QScrollArea()
 
-        scroll.setWidgetResizable(
-            True
-        )
+        scroll.setWidgetResizable(True)
 
         scroll.setFrameShape(
             QFrame.NoFrame
@@ -691,32 +1110,59 @@ class MemoryPage(CarbonFiberBackground):
             0
         )
 
-        self.app_list_layout.setSpacing(
-            6
-        )
+        self.app_list_layout.setSpacing(6)
 
         scroll.setWidget(
             self.app_list_widget
         )
 
         mode_row = QHBoxLayout()
+
         mode_label = QLabel("VIEW")
-        mode_label.setObjectName("app_percent")
-        mode_row.addWidget(mode_label)
+
+        mode_label.setObjectName(
+            "app_percent"
+        )
+
+        mode_row.addWidget(
+            mode_label
+        )
+
         self.view_mode_box = QComboBox()
-        self.view_mode_box.addItem("Grouped", "grouped")
-        self.view_mode_box.addItem("Top Processes", "top")
-        self.view_mode_box.addItem("All Processes", "all")
-        self.view_mode_box.setToolTip("Choose how process memory is grouped")
-        self.view_mode_box.currentIndexChanged.connect(self._change_view_mode)
-        mode_row.addWidget(self.view_mode_box, 1)
-        app_layout.addLayout(mode_row)
+
+        self.view_mode_box.addItem(
+            "Grouped",
+            "grouped"
+        )
+
+        self.view_mode_box.addItem(
+            "Top Processes",
+            "top"
+        )
+
+        self.view_mode_box.addItem(
+            "All Processes",
+            "all"
+        )
+
+        self.view_mode_box.setToolTip(
+            "Choose how process memory is grouped"
+        )
+
+        self.view_mode_box.currentIndexChanged.connect(
+            self._change_view_mode
+        )
+
+        mode_row.addWidget(
+            self.view_mode_box,
+            1
+        )
+
+        app_layout.addLayout(
+            mode_row
+        )
 
         app_layout.addWidget(scroll)
-
-        # =================================================
-        # ADD TOP PANELS
-        # =================================================
 
         top_section.addWidget(
             donut_frame,
@@ -792,7 +1238,7 @@ class MemoryPage(CarbonFiberBackground):
         )
 
         # =================================================
-        # RAM GRAPH PANEL
+        # RAM GRAPH
         # =================================================
 
         graph_frame = QFrame()
@@ -824,10 +1270,6 @@ class MemoryPage(CarbonFiberBackground):
             graph_title
         )
 
-        # =================================================
-        # GRAPH
-        # =================================================
-
         self.graph = pg.PlotWidget()
 
         self.graph.setBackground(
@@ -855,72 +1297,46 @@ class MemoryPage(CarbonFiberBackground):
             "TIME"
         )
 
-        # -------------------------------------------------
-        # AXIS STYLE
-        # -------------------------------------------------
-
         self.graph.getAxis(
             "left"
-        ).setTextPen(
-            "#686868"
-        )
+        ).setTextPen("#686868")
 
         self.graph.getAxis(
             "bottom"
-        ).setTextPen(
-            "#686868"
-        )
+        ).setTextPen("#686868")
 
         self.graph.getAxis(
             "left"
         ).setPen(
-            pg.mkPen(
-                "#303030"
-            )
+            pg.mkPen("#303030")
         )
 
         self.graph.getAxis(
             "bottom"
         ).setPen(
-            pg.mkPen(
-                "#303030"
+            pg.mkPen("#303030")
+        )
+
+        self.ram_curve = self.graph.plot(
+            self.ram_history,
+            pen=pg.mkPen(
+                "#ab47bc",
+                width=2
             )
         )
 
-        # =================================================
-        # RAM CURVE
-        # =================================================
-
-        self.ram_curve = (
-            self.graph.plot(
-                self.ram_history,
-                pen=pg.mkPen(
-                    "#ab47bc",
-                    width=2
-                )
-            )
+        self.ram_bottom = pg.PlotDataItem(
+            [0] * self.max_points
         )
 
-        # =================================================
-        # RAM FILL
-        # =================================================
-
-        self.ram_bottom = (
-            pg.PlotDataItem(
-                [0] * self.max_points
-            )
-        )
-
-        self.ram_fill = (
-            pg.FillBetweenItem(
-                self.ram_curve,
-                self.ram_bottom,
-                brush=pg.mkBrush(
-                    171,
-                    71,
-                    188,
-                    60
-                )
+        self.ram_fill = pg.FillBetweenItem(
+            self.ram_curve,
+            self.ram_bottom,
+            brush=pg.mkBrush(
+                171,
+                71,
+                188,
+                60
             )
         )
 
@@ -938,47 +1354,86 @@ class MemoryPage(CarbonFiberBackground):
         )
 
     # =====================================================
-    # UPDATE MEMORY
+    # VIEW MODE
     # =====================================================
 
     def _change_view_mode(self):
-        self.view_mode = self.view_mode_box.currentData()
-        memory = psutil.virtual_memory()
-        self.update_application_memory(memory.total)
+
+        self.view_mode = (
+            self.view_mode_box.currentData()
+        )
+
+        if self.process_data:
+
+            self.process_memory_data(
+                self.process_data
+            )
+
+    # =====================================================
+    # HIGHLIGHT
+    # =====================================================
 
     def _highlight_application(self, item):
-        name = item["name"] if item else None
-        for index in range(self.app_list_layout.count()):
-            row = self.app_list_layout.itemAt(index).widget()
-            if isinstance(row, ApplicationMemoryRow):
-                row.setProperty("active", row.item["name"] == name)
+
+        name = (
+            item["name"]
+            if item
+            else None
+        )
+
+        for index in range(
+            self.app_list_layout.count()
+        ):
+
+            row = (
+                self.app_list_layout
+                .itemAt(index)
+                .widget()
+            )
+
+            if isinstance(
+                row,
+                ApplicationMemoryRow
+            ):
+
+                row.setProperty(
+                    "active",
+                    row.item["name"] == name
+                )
+
                 row.style().unpolish(row)
                 row.style().polish(row)
 
+    # =====================================================
+    # SELECT
+    # =====================================================
+
     def _select_application(self, item):
-        name = item["name"] if item else None
+
+        name = (
+            item["name"]
+            if item
+            else None
+        )
+
         self.donut.set_selected(name)
-        self._highlight_application(item)
+
+        self._highlight_application(
+            item
+        )
+
+    # =====================================================
+    # FAST RAM UPDATE
+    # =====================================================
 
     def update_memory(self):
-
-        # =================================================
-        # SYSTEM RAM
-        # =================================================
 
         memory = psutil.virtual_memory()
 
         total = memory.total
-
         used = memory.used
-
         available = memory.available
-
         percent = memory.percent
-
-        # =================================================
-        # UPDATE STATISTICS
-        # =================================================
 
         self.total_label.setText(
             f"TOTAL: {total / (1024 ** 3):.2f} GB"
@@ -995,10 +1450,6 @@ class MemoryPage(CarbonFiberBackground):
         self.percent_label.setText(
             f"USAGE: {percent:.1f}%"
         )
-
-        # =================================================
-        # UPDATE HISTORY
-        # =================================================
 
         self.ram_history.append(
             percent
@@ -1018,122 +1469,130 @@ class MemoryPage(CarbonFiberBackground):
             [0] * self.max_points
         )
 
-        # =================================================
-        # UPDATE APPLICATION MEMORY
-        # =================================================
-
-        self.update_application_memory(
-            total
-        )
+        # Update system percentage
+        # without scanning processes.
+        self.donut.system_percent = percent
+        self.donut.update()
 
     # =====================================================
-    # GET APPLICATION MEMORY
+    # PROCESS DATA RECEIVED FROM WORKER
     # =====================================================
 
-    def update_application_memory(
+    @Slot(list)
+    def process_memory_data(
         self,
-        total_memory
+        sorted_processes
     ):
 
-        processes = {}
-        process_icons = {}
+        self.process_data = sorted_processes
 
-        # =================================================
-        # GET ALL RUNNING PROCESSES
-        # =================================================
-
-        for process in psutil.process_iter():
-            try:
-                name = process.name()
-                memory_info = process.memory_info()
-
-                if not name or not memory_info:
-                    continue
-
-                rss = memory_info.rss
-                if rss <= 0:
-                    continue
-
-                name = name.strip()
-                if name.lower().endswith(".exe"):
-                    name = name[:-4]
-                processes[name] = processes.get(name, 0) + rss
-
-                if name not in process_icons:
-                    try:
-                        process_icons[name] = process.exe()
-                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, PermissionError, OSError):
-                        process_icons[name] = ""
-
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, PermissionError, OSError, Exception):
-                continue
-
-        # =================================================
-        # SORT BY MEMORY
-        # =================================================
-
-        sorted_processes = sorted(
-            processes.items(),
-            key=lambda item: item[1],
-            reverse=True
+        top_processes = (
+            sorted_processes[
+                :self.max_apps
+            ]
         )
 
-        self.process_data = [
-            {"name": name, "value": memory, "icon_path": process_icons.get(name, "")}
-            for name, memory in sorted_processes
-        ]
+        if self.view_mode == "all":
 
-        # =================================================
-        # TOP APPLICATIONS
-        # =================================================
+            visible_processes = (
+                sorted_processes
+            )
 
-        top_processes = sorted_processes[:self.max_apps]
-        visible_processes = sorted_processes if self.view_mode == "all" else top_processes
+        else:
 
+            visible_processes = (
+                top_processes
+            )
+
+<<<<<<< Updated upstream
         # =================================================
         # EVERYTHING ELSE
         # =================================================
+=======
+        max_memory = (
+            top_processes[0]["value"]
+            if top_processes
+            else 0
+        )
+>>>>>>> Stashed changes
 
         other_memory = sum(
-            memory
-            for name, memory
+            item["value"]
+            for item
             in sorted_processes[
                 self.max_apps:
             ]
         )
 
-        # =================================================
-        # BUILD CHART DATA
-        # =================================================
-
         chart_data = []
 
-        for index, (
-            name,
-            memory
-        ) in enumerate(
+        for index, item in enumerate(
             visible_processes
         ):
+
+            name = item["name"]
+            memory = item["value"]
 
             color = APP_COLORS[
                 index
                 % len(APP_COLORS)
             ]
 
+<<<<<<< Updated upstream
+=======
+            if max_memory > 0:
+
+                base_color = QColor(
+                    color
+                )
+
+                red_color = QColor(
+                    "#e53935"
+                )
+
+                intensity = (
+                    memory
+                    / max_memory
+                )
+
+                color = QColor(
+                    int(
+                        base_color.red()
+                        * (1 - intensity)
+                        + red_color.red()
+                        * intensity
+                    ),
+                    int(
+                        base_color.green()
+                        * (1 - intensity)
+                        + red_color.green()
+                        * intensity
+                    ),
+                    int(
+                        base_color.blue()
+                        * (1 - intensity)
+                        + red_color.blue()
+                        * intensity
+                    ),
+                ).name()
+
+>>>>>>> Stashed changes
             chart_data.append(
                 {
                     "name": name,
                     "value": memory,
-                    "icon_path": process_icons.get(name, ""),
+                    "icon_path": item.get(
+                        "icon_path",
+                        ""
+                    ),
                     "color": color,
                 }
             )
 
-        # =================================================
-        # OTHER APPS
-        # =================================================
-
-        if other_memory > 0 and self.view_mode == "grouped":
+        if (
+            other_memory > 0
+            and self.view_mode == "grouped"
+        ):
 
             chart_data.append(
                 {
@@ -1143,26 +1602,14 @@ class MemoryPage(CarbonFiberBackground):
                 }
             )
 
-        # =================================================
-        # SAVE
-        # =================================================
-
         self.application_data = (
             chart_data
         )
 
-        # =================================================
-        # UPDATE DONUT
-        # =================================================
-
         self.donut.set_data(
             chart_data,
-            psutil.virtual_memory().percent,
+            psutil.virtual_memory().percent
         )
-
-        # =================================================
-        # UPDATE APPLICATION LIST
-        # =================================================
 
         self.update_application_list(
             chart_data
@@ -1176,10 +1623,6 @@ class MemoryPage(CarbonFiberBackground):
         self,
         data
     ):
-
-        # =================================================
-        # CLEAR OLD ROWS
-        # =================================================
 
         while (
             self.app_list_layout.count()
@@ -1198,10 +1641,6 @@ class MemoryPage(CarbonFiberBackground):
 
                 widget.deleteLater()
 
-        # =================================================
-        # TOTAL PROCESS MEMORY
-        # =================================================
-
         total = sum(
             item["value"]
             for item in data
@@ -1210,23 +1649,11 @@ class MemoryPage(CarbonFiberBackground):
         if total <= 0:
             return
 
-        # =================================================
-        # CREATE APPLICATION ROWS
-        # =================================================
-
         for item in data:
 
-            name = item[
-                "name"
-            ]
-
-            value = item[
-                "value"
-            ]
-
-            color = item[
-                "color"
-            ]
+            name = item["name"]
+            value = item["value"]
+            color = item["color"]
 
             percentage = (
                 value / total
@@ -1237,18 +1664,21 @@ class MemoryPage(CarbonFiberBackground):
                 / (1024 ** 3)
             )
 
-            # =================================================
-            # ROW
-            # =================================================
-
-            row = ApplicationMemoryRow(item)
+            row = ApplicationMemoryRow(
+                item
+            )
 
             row.setObjectName(
                 "application_row"
             )
 
-            row.hovered.connect(self.donut.set_hovered)
-            row.selected.connect(self._select_application)
+            row.hovered.connect(
+                self.donut.set_hovered
+            )
+
+            row.selected.connect(
+                self._select_application
+            )
 
             row_layout = QHBoxLayout(
                 row
@@ -1261,13 +1691,7 @@ class MemoryPage(CarbonFiberBackground):
                 5
             )
 
-            row_layout.setSpacing(
-                8
-            )
-
-            # =================================================
-            # COLOR MARKER
-            # =================================================
+            row_layout.setSpacing(8)
 
             color_box = QFrame()
 
@@ -1290,28 +1714,72 @@ class MemoryPage(CarbonFiberBackground):
                 color_box
             )
 
-            # APPLICATION ICON
-            icon_path = item.get("icon_path", "")
+            icon_path = item.get(
+                "icon_path",
+                ""
+            )
+
+            # Cache Windows application icons by executable path.
+            # QFileIconProvider can be relatively expensive, so
+            # do not ask Windows for the same icon every refresh.
             if icon_path:
-                app_icon = QFileIconProvider().icon(
-                    QFileInfo(icon_path)
-                )
+
+                if icon_path in self.icon_cache:
+
+                    app_icon = self.icon_cache[
+                        icon_path
+                    ]
+
+                else:
+
+                    try:
+
+                        app_icon = (
+                            self.icon_provider.icon(
+                                QFileInfo(
+                                    icon_path
+                                )
+                            )
+                        )
+
+                        self.icon_cache[
+                            icon_path
+                        ] = app_icon
+
+                    except Exception:
+
+                        app_icon = (
+                            QApplication.style()
+                            .standardIcon(
+                                QStyle.SP_ComputerIcon
+                            )
+                        )
+
+                        self.icon_cache[
+                            icon_path
+                        ] = app_icon
+
             else:
-                app_icon = QApplication.style().standardIcon(
-                    QStyle.SP_ComputerIcon
+
+                app_icon = (
+                    QApplication.style()
+                    .standardIcon(
+                        QStyle.SP_ComputerIcon
+                    )
                 )
 
             icon_label = QLabel()
+
             icon_label.setPixmap(
-                app_icon.pixmap(20, 20)
+                app_icon.pixmap(
+                    20,
+                    20
+                )
             )
+
             row_layout.addWidget(
                 icon_label
             )
-
-            # =================================================
-            # APPLICATION NAME
-            # =================================================
 
             name_label = QLabel(
                 name
@@ -1330,10 +1798,6 @@ class MemoryPage(CarbonFiberBackground):
                 1
             )
 
-            # =================================================
-            # MEMORY
-            # =================================================
-
             memory_label = QLabel(
                 f"{gb:.2f} GB"
             )
@@ -1349,10 +1813,6 @@ class MemoryPage(CarbonFiberBackground):
             row_layout.addWidget(
                 memory_label
             )
-
-            # =================================================
-            # PERCENTAGE
-            # =================================================
 
             percent_label = QLabel(
                 f"{percentage:.1f}%"
@@ -1376,6 +1836,9 @@ class MemoryPage(CarbonFiberBackground):
 
         self.app_list_layout.addStretch()
 
+    # =====================================================
+    # CLOSE
+    # =====================================================
 
     def closeEvent(
         self,
@@ -1383,5 +1846,17 @@ class MemoryPage(CarbonFiberBackground):
     ):
 
         self.timer.stop()
+        self.scan_timer.stop()
+
+        if self.worker_thread.isRunning():
+
+            self.worker_thread.quit()
+
+            if not self.worker_thread.wait(
+                2000
+            ):
+
+                self.worker_thread.terminate()
+                self.worker_thread.wait()
 
         event.accept()
