@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>System Diagnostic Report - DELL</title>
+    <style>
+        body { background-color: #080808; color: #dddddd; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 30px; }
+        h1 { color: #ff8f00; letter-spacing: 1px; margin-bottom: 5px; }
+        .subtitle { color: #888888; font-size: 13px; margin-bottom: 25px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .card { background-color: #111111; border: 1px solid #282828; border-radius: 6px; padding: 20px; }
+        .card h3 { color: #ffaa00; margin-top: 0; border-bottom: 1px solid #222; padding-bottom: 8px; font-size: 14px; text-transform: uppercase; }
+        .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #181818; font-size: 12px; }
+        .val { font-weight: bold; color: #ffffff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #222222; }
+        th { background-color: #181818; color: #ff8f00; text-transform: uppercase; font-size: 11px; }
+        tr:hover { background-color: #161616; }
+        .badge { background: #26a69a; color: #000; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 11px; }
+    </style>
+</head>
+<body>
+    <h1>SYSTEM DIAGNOSTIC & TELEMETRY REPORT</h1>
+    <div class="subtitle">Generated on 2026-08-23 14:47:45 for Host: <b>DELL</b> <span class="badge">STATUS: OK</span></div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Hardware Overview</h3>
+            <div class="row"><span>Operating System</span><span class="val">Windows 11 (AMD64)</span></div>
+            <div class="row"><span>Processor</span><span class="val">Intel64 Family 6 Model 141 Stepping 1, GenuineIntel</span></div>
+            <div class="row"><span>Cores / Threads</span><span class="val">8 Cores / 16 Threads</span></div>
+            <div class="row"><span>GPU Model</span><span class="val">NVIDIA GeForce MX450</span></div>
+        </div>
+
+        <div class="card">
+            <h3>Live Telemetry Snapshot</h3>
+            <div class="row"><span>CPU Usage</span><span class="val" style="color:#55d66f">17.7%</span></div>
+            <div class="row"><span>Total RAM</span><span class="val">15.73 GB</span></div>
+            <div class="row"><span>RAM Usage</span><span class="val">12.47 GB (79.3%)</span></div>
+            <div class="row"><span>GPU VRAM</span><span class="val">0.14 GB / 2.00 GB</span></div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 25px;">
+        <h3>Storage Devices & Partitions</h3>
+        <table>
+            <thead>
+                <tr><th>Mount Point</th><th>File System</th><th>Total Capacity</th><th>Used Space</th><th>Free Space</th><th>Usage %</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><b>C:\</b></td><td>NTFS</td><td>459.9 GB</td><td>219.9 GB</td><td>240.0 GB</td><td><b style='color:#55d66f'>47.8%</b></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>Top Memory Consuming Processes</h3>
+        <table>
+            <thead>
+                <tr><th>PID</th><th>Process Name</th><th>CPU %</th><th>Memory (MB)</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>20132</td><td><b>kilo.exe</b></td><td>0.0%</td><td>839.3 MB</td></tr><tr><td>12652</td><td><b>Discord.exe</b></td><td>0.0%</td><td>704.9 MB</td></tr><tr><td>16480</td><td><b>Code.exe</b></td><td>0.0%</td><td>686.4 MB</td></tr><tr><td>12004</td><td><b>Code.exe</b></td><td>0.0%</td><td>397.4 MB</td></tr><tr><td>7668</td><td><b>Discord.exe</b></td><td>0.0%</td><td>345.2 MB</td></tr><tr><td>25180</td><td><b>OneDrive.exe</b></td><td>0.0%</td><td>335.7 MB</td></tr><tr><td>3196</td><td><b>MemCompression</b></td><td>0.0%</td><td>276.6 MB</td></tr><tr><td>18288</td><td><b>chrome.exe</b></td><td>0.0%</td><td>271.9 MB</td></tr><tr><td>27144</td><td><b>Code.exe</b></td><td>0.0%</td><td>265.4 MB</td></tr><tr><td>26940</td><td><b>explorer.exe</b></td><td>0.0%</td><td>252.1 MB</td></tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
