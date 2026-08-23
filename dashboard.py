@@ -1,5 +1,9 @@
 import math
 import json
+import subprocess
+import sys
+import time
+from pathlib import Path
 
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -154,6 +158,7 @@ class PerformanceGauge(QWidget):
         self.value = minimum
         self.target_value = minimum
         self.display_value = minimum
+        self.value_available = True
         self.startup_active = False
         self.startup_progress = 0.0
 
@@ -169,8 +174,10 @@ class PerformanceGauge(QWidget):
 
     def setValue(self, value):
         if value is None:
+            self.value_available = False
             self.target_value = self.minimum
         else:
+            self.value_available = True
             self.target_value = max(self.minimum, min(self.maximum, float(value)))
 
     def get_startup_progress(self):
@@ -716,17 +723,7 @@ class PerformanceGauge(QWidget):
         # DIGITAL VALUE
         # =================================================
 
-        if self.unit == "°C":
-
-            value_text = (
-                f"{self.value:.0f}"
-            )
-
-        else:
-
-            value_text = (
-                f"{self.value:.0f}"
-            )
+        value_text = "N/A" if not self.value_available else f"{self.value:.0f}"
 
         painter.setPen(
             QColor(
@@ -850,6 +847,9 @@ class DashboardPage(CarbonFiberBackground):
 
         super().__init__()
 
+        self.lhm_process = None
+        self.start_libre_hardware_monitor()
+
         # =================================================
         # GPU INITIALIZATION
         # =================================================
@@ -924,6 +924,52 @@ class DashboardPage(CarbonFiberBackground):
 
         self.timer.start(500)
         self.update_data()
+
+    def start_libre_hardware_monitor(self):
+
+        """Start the bundled LibreHardwareMonitor web server when needed."""
+
+        if not sys.platform.startswith("win"):
+            return
+
+        try:
+            with urlopen(
+                "http://127.0.0.1:8085/data.json",
+                timeout=0.15
+            ):
+                return
+        except (OSError, URLError, ValueError):
+            pass
+
+        monitor_path = (
+            Path(__file__).resolve().parent
+            / ".tools"
+            / "LibreHardwareMonitor"
+            / "LibreHardwareMonitor.exe"
+        )
+
+        if not monitor_path.is_file():
+            return
+
+        try:
+            self.lhm_process = subprocess.Popen(
+                [str(monitor_path)],
+                cwd=str(monitor_path.parent),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+        except OSError:
+            self.lhm_process = None
+
+    def closeEvent(self, event):
+
+        self.timer.stop()
+
+        if self.lhm_process is not None and self.lhm_process.poll() is None:
+            self.lhm_process.terminate()
+
+        super().closeEvent(event)
 
     def set_refresh_interval(self, ms):
         self.timer.setInterval(ms)
@@ -1448,15 +1494,19 @@ class DashboardPage(CarbonFiberBackground):
         try:
             with urlopen(
                 "http://127.0.0.1:8085/data.json",
-                timeout=0.2
+                timeout=0.3
             ) as response:
                 sensor_tree = json.load(response)
         except (OSError, URLError, ValueError):
             return None
 
         def find_cpu_node(node):
+            if not isinstance(node, dict):
+                return None
+
             hardware_id = node.get("HardwareId", "").lower()
-            if "cpu" in hardware_id:
+            node_text = node.get("Text", "").lower()
+            if "cpu" in hardware_id or "cpu" in node_text:
                 return node
 
             for child in node.get("Children", []):
@@ -1469,11 +1519,15 @@ class DashboardPage(CarbonFiberBackground):
         def find_temperature_sensors(node):
             sensors = []
 
+            if not isinstance(node, dict):
+                return sensors
+
             if node.get("Type") == "Temperature":
                 name = node.get("Text", "").lower()
                 if "distance to tjmax" not in name:
                     try:
-                        value = float(node.get("RawValue", "").split()[0])
+                        raw_value = node.get("RawValue", node.get("Value", ""))
+                        value = float(str(raw_value).split()[0])
                         sensors.append((name, value))
                     except (AttributeError, IndexError, ValueError):
                         pass
@@ -1504,6 +1558,9 @@ class DashboardPage(CarbonFiberBackground):
     def get_psutil_cpu_temperature(self):
 
         """Return the best available CPU temperature reported by psutil."""
+
+        if not hasattr(psutil, "sensors_temperatures"):
+            return self.get_windows_cpu_temperature()
 
         try:
             sensor_groups = psutil.sensors_temperatures(
@@ -1541,7 +1598,80 @@ class DashboardPage(CarbonFiberBackground):
         if other_readings:
             return max(other_readings)
 
-        return None
+        return self.get_windows_cpu_temperature()
+
+    def get_windows_cpu_temperature(self):
+
+        """Read Windows ACPI thermal zones when no native sensor API exists."""
+
+        if not sys.platform.startswith("win"):
+            return None
+
+        now = time.monotonic()
+        cached_at = getattr(self, "_cpu_temperature_cached_at", 0)
+        if now - cached_at < 2.0:
+            return getattr(self, "_cpu_temperature_cached", None)
+
+        def run_powershell(command):
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    command,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=0.8,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            output = result.stdout.strip()
+            if not output:
+                return []
+            values = json.loads(output)
+            return values if isinstance(values, list) else [values]
+
+        try:
+            temperatures = [
+                float(reading)
+                for reading in run_powershell(
+                    "$readings = @(); "
+                    "foreach ($namespace in @('root/LibreHardwareMonitor', "
+                    "'root/OpenHardwareMonitor')) { "
+                    "try { $readings += Get-CimInstance -Namespace $namespace "
+                    "-ClassName Sensor -ErrorAction Stop | "
+                    "Where-Object { $_.SensorType -eq 'Temperature' -and "
+                    "$_.Value -ne $null -and $_.Name -notlike '*Distance*' "
+                    "-and ($_.Name -match 'CPU|Package|Core|Tdie|Tctl' "
+                    "-or $_.Identifier -match 'cpu') } "
+                    "} catch {} }; "
+                    "$readings | Select-Object -ExpandProperty Value "
+                    "| ConvertTo-Json -Compress"
+                )
+            ]
+        except (OSError, subprocess.TimeoutExpired, TypeError, ValueError, json.JSONDecodeError):
+            temperatures = []
+
+        if not temperatures:
+            try:
+                readings = run_powershell(
+                    "(Get-CimInstance -Namespace root/wmi "
+                    "-ClassName MSAcpi_ThermalZoneTemperature "
+                    "| Select-Object -ExpandProperty CurrentTemperature "
+                    "| ConvertTo-Json -Compress)"
+                )
+                temperatures = [
+                    (float(reading) / 10) - 273.15
+                    for reading in readings
+                    if reading is not None
+                ]
+            except (OSError, subprocess.TimeoutExpired, TypeError, ValueError, json.JSONDecodeError):
+                temperatures = []
+
+        self._cpu_temperature_cached_at = now
+        self._cpu_temperature_cached = max(temperatures) if temperatures else None
+        return self._cpu_temperature_cached
 
     def update_data(self):
 
