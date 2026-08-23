@@ -21,11 +21,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-
-# =========================================================
-# APPLICATION COLORS
-# =========================================================
-
 APP_COLORS = [
     "#e53935",   # Red
     "#ff8f00",   # Orange
