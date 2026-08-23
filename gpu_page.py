@@ -228,7 +228,7 @@ class GPUPerformancePage(CarbonFiberBackground):
         card, layout = self.create_card("GPU CORE UTILIZATION & TEMPERATURE HISTORY (60s)")
 
         self.graph = pg.PlotWidget()
-        self.graph.setBackground("#050505")
+        self.graph.setBackground("#0d0d0d")
         self.graph.showGrid(x=True, y=True, alpha=0.15)
         self.graph.setYRange(0, 100)
         self.graph.setFixedHeight(220)

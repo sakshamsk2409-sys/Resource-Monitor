@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
+from dashboard import CarbonFiberBackground
+
 APP_COLORS = [
     "#e53935",   # Red
     "#ff8f00",   # Orange
@@ -287,7 +289,7 @@ class MemoryDonut(QWidget):
 # MEMORY PAGE
 # =========================================================
 
-class MemoryPage(QWidget):
+class MemoryPage(CarbonFiberBackground):
 
     def __init__(self):
 
@@ -675,7 +677,7 @@ class MemoryPage(QWidget):
         self.graph = pg.PlotWidget()
 
         self.graph.setBackground(
-            "#050505"
+            "#0d0d0d"
         )
 
         self.graph.showGrid(

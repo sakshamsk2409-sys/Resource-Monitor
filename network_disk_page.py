@@ -154,7 +154,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         card, layout = self.create_card("NETWORK BANDWIDTH SPEED (UPLOAD vs DOWNLOAD - KB/s)")
 
         self.net_graph = pg.PlotWidget()
-        self.net_graph.setBackground("#050505")
+        self.net_graph.setBackground("#0d0d0d")
         self.net_graph.showGrid(x=True, y=True, alpha=0.15)
         self.net_graph.setFixedHeight(180)
 
@@ -168,7 +168,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         card, layout = self.create_card("DISK I/O THROUGHPUT (READ vs WRITE - MB/s)")
 
         self.disk_graph = pg.PlotWidget()
-        self.disk_graph.setBackground("#050505")
+        self.disk_graph.setBackground("#0d0d0d")
         self.disk_graph.showGrid(x=True, y=True, alpha=0.15)
         self.disk_graph.setFixedHeight(180)
 

@@ -1,8 +1,10 @@
 import math
 import json
+import re
 import subprocess
 import sys
 import time
+import platform
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -64,7 +66,7 @@ class CarbonFiberBackground(QWidget):
 
         painter.fillRect(
             self.rect(),
-            QColor("#050505")
+            QColor("#101010")
         )
 
         tile = 18
@@ -84,7 +86,7 @@ class CarbonFiberBackground(QWidget):
                 left = x + row_offset
 
                 painter.setBrush(
-                    QColor("#080808")
+                    QColor("#171717")
                 )
 
                 painter.drawPolygon(
@@ -99,7 +101,7 @@ class CarbonFiberBackground(QWidget):
                 )
 
                 painter.setBrush(
-                    QColor("#030303")
+                    QColor("#0b0b0b")
                 )
 
                 painter.drawPolygon(
@@ -316,6 +318,30 @@ class PerformanceGauge(QWidget):
                 center.y() - radius - 25,
                 (radius + 25) * 2,
                 (radius + 25) * 2
+            )
+        )
+        leather_pen = QPen(
+            QColor("#7a2525")
+        )
+
+        leather_pen.setWidth(
+            7
+        )
+
+        painter.setPen(
+            leather_pen
+        )
+
+        painter.setBrush(
+            Qt.NoBrush
+        )
+
+        painter.drawEllipse(
+            QRectF(
+                center.x() - radius - 24,
+                center.y() - radius - 24,
+                (radius + 24) * 2,
+                (radius + 24) * 2
             )
         )
 
@@ -922,6 +948,31 @@ class DashboardPage(CarbonFiberBackground):
         ):
             gauge.finish_startup_sweep()
 
+    def get_gpu_display_name(self):
+
+        """Return the detected GPU name in a compact cockpit format."""
+
+        gpu_name = self.gpu_name.strip()
+        if not self.gpu_available or self.gpu_handle is None:
+            return gpu_name
+
+        is_laptop = bool(re.search(r"\blaptop\b", gpu_name, re.IGNORECASE))
+        display_name = re.sub(r"\bgeforce\s+", "", gpu_name, flags=re.IGNORECASE)
+        display_name = re.sub(r"\s+laptop\s+gpu\b", "", display_name, flags=re.IGNORECASE)
+        display_name = re.sub(r"\b\d+(?:\.\d+)?\s*(?:GB|GiB)\b", "", display_name, flags=re.IGNORECASE)
+       
+        display_name = " ".join(display_name.split()).upper()
+
+        try:
+            memory_info = pynvml.nvmlDeviceGetMemoryInfo(self.gpu_handle)
+            memory_gb = round(memory_info.total / (1024 ** 3))
+            memory_text = f"{memory_gb} GB"
+        except Exception:
+            memory_text = "VRAM"
+
+        laptop_suffix = " LAPTOP" if is_laptop else ""
+        return f"{display_name} {memory_text}{laptop_suffix}"
+
     def setup_ui(self):
 
         layout = QVBoxLayout(
@@ -943,7 +994,7 @@ class DashboardPage(CarbonFiberBackground):
         header = QHBoxLayout()
 
         title = QLabel(
-            " COCKPIT"
+            self.get_gpu_display_name()
         )
 
         title.setObjectName(
@@ -958,9 +1009,7 @@ class DashboardPage(CarbonFiberBackground):
             "cockpit_status"
         )
 
-        header.addWidget(
-            title
-        )
+        header.addWidget(title)
 
         header.addStretch()
 
@@ -1069,69 +1118,6 @@ class DashboardPage(CarbonFiberBackground):
             1
         )
 
-        gpu_info = QFrame()
-
-        gpu_info.setObjectName(
-            "cockpit_info"
-        )
-
-        gpu_info_layout = QHBoxLayout(
-            gpu_info
-        )
-
-        gpu_info_layout.setContentsMargins(
-            12,
-            5,
-            12,
-            5
-        )
-
-        gpu_name_label = QLabel(
-            self.gpu_name
-        )
-
-        gpu_name_label.setObjectName(
-            "gpu_name"
-        )
-
-        self.vram_label = QLabel(
-            "VRAM: N/A"
-        )
-
-        self.vram_label.setObjectName(
-            "telemetry_value"
-        )
-
-        self.power_label = QLabel(
-            "POWER: N/A"
-        )
-
-        self.power_label.setObjectName(
-            "telemetry_value"
-        )
-
-        gpu_info_layout.addWidget(
-            gpu_name_label
-        )
-
-        gpu_info_layout.addStretch()
-
-        gpu_info_layout.addWidget(
-            self.vram_label
-        )
-
-        gpu_info_layout.addSpacing(
-            20
-        )
-
-        gpu_info_layout.addWidget(
-            self.power_label
-        )
-
-        layout.addWidget(
-            gpu_info
-        )
-
         telemetry_header = QHBoxLayout()
 
         telemetry_title = QLabel(
@@ -1187,7 +1173,7 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         self.graph.setBackground(
-            "#050505"
+            "#0d0d0d"
         )
 
         self.graph.showGrid(
@@ -1657,251 +1643,57 @@ class DashboardPage(CarbonFiberBackground):
 
     def update_data(self):
 
-        cpu = psutil.cpu_percent(
-            interval=None
-        )
-
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory().percent
         cpu_temperature = self.get_cpu_temperature()
         gpu_adapter_usage = self.get_lhm_gpu_usage()
-        ram = psutil.virtual_memory().percent
-        gpu_usage = (
-            self.gpu_history[-1]
-            if self.gpu_history
-            else 0
-        )
+        gpu_temperature = None
+
+        if self.gpu_available:
+            try:
+                gpu_temperature = pynvml.nvmlDeviceGetTemperature(
+                    self.gpu_handle,
+                    pynvml.NVML_TEMPERATURE_GPU
+                )
+            except Exception:
+                gpu_temperature = None
+
         gpu_0_usage = (
             gpu_adapter_usage[0]
             if len(gpu_adapter_usage) > 0
-            else gpu_usage
+            else None
         )
         gpu_1_usage = (
             gpu_adapter_usage[1]
             if len(gpu_adapter_usage) > 1
-            else 0
-        )
-        gpu_temperature = None
-        vram_used = None
-        vram_total = None
-        power_usage = None
-        if self.gpu_available:
-            try:
-
-                utilization = (
-                    pynvml.nvmlDeviceGetUtilizationRates(
-                        self.gpu_handle
-                    )
-                )
-
-                gpu_usage = (
-                    utilization.gpu
-                )
-
-                if not gpu_adapter_usage:
-                    gpu_0_usage = gpu_usage
-
-            except Exception:
-
-                gpu_usage = (
-                    self.gpu_history[-1]
-                    if self.gpu_history
-                    else 0
-                )
-            try:
-
-                gpu_temperature = (
-                    pynvml.nvmlDeviceGetTemperature(
-                        self.gpu_handle,
-                        pynvml.NVML_TEMPERATURE_GPU
-                    )
-                )
-
-            except Exception:
-
-                gpu_temperature = None
-
-            try:
-
-                memory_info = (
-                    pynvml.nvmlDeviceGetMemoryInfo(
-                        self.gpu_handle
-                    )
-                )
-
-                vram_used = (
-                    memory_info.used
-                )
-
-                vram_total = (
-                    memory_info.total
-                )
-
-            except Exception:
-
-                pass
-
-            try:
-
-                power_usage = (
-                    pynvml.nvmlDeviceGetPowerUsage(
-                        self.gpu_handle
-                    )
-                    / 1000
-                )
-
-            except Exception:
-
-                pass
-
-
-
-        self.cpu_gauge.setValue(
-            cpu
+            else None
         )
 
-        self.cpu_temp_gauge.setValue(
-            cpu_temperature
-        )
+        self.cpu_gauge.setValue(cpu)
+        self.cpu_temp_gauge.setValue(cpu_temperature)
+        self.ram_gauge.setValue(ram)
+        self.temp_gauge.setValue(gpu_temperature)
+        self.gpu_0_gauge.setValue(gpu_0_usage)
+        self.gpu_1_gauge.setValue(gpu_1_usage)
 
-        self.gpu_0_gauge.setValue(
-            gpu_adapter_usage[0] if len(gpu_adapter_usage) > 0 else None
-        )
+        self.cpu_history.append(cpu)
+        self.gpu_history.append(gpu_0_usage or 0)
+        self.gpu_1_history.append(gpu_1_usage or 0)
+        self.ram_history.append(ram)
 
-        self.gpu_1_gauge.setValue(
-            gpu_adapter_usage[1] if len(gpu_adapter_usage) > 1 else None
-        )
+        self.cpu_history = self.cpu_history[-self.max_points:]
+        self.gpu_history = self.gpu_history[-self.max_points:]
+        self.gpu_1_history = self.gpu_1_history[-self.max_points:]
+        self.ram_history = self.ram_history[-self.max_points:]
 
-        self.ram_gauge.setValue(
-            ram
-        )
-        if gpu_temperature is not None:
-
-            self.temp_gauge.setValue(
-                gpu_temperature
-            )
-
-        if (
-            vram_used is not None
-            and
-            vram_total is not None
-        ):
-
-            used_gb = (
-                vram_used
-                /
-                (1024 ** 3)
-            )
-
-            total_gb = (
-                vram_total
-                /
-                (1024 ** 3)
-            )
-
-            percent = (
-                vram_used
-                /
-                vram_total
-                * 100
-            )
-
-            self.vram_label.setText(
-                f"VRAM "
-                f"{used_gb:.1f}/"
-                f"{total_gb:.1f} GB "
-                f"({percent:.0f}%)"
-            )
-
-        else:
-
-            self.vram_label.setText(
-                "VRAM N/A"
-            )
-
-        if power_usage is not None:
-
-            self.power_label.setText(
-                f"POWER "
-                f"{power_usage:.1f} W"
-            )
-
-        else:
-
-            self.power_label.setText(
-                "POWER N/A"
-            )
-
-
-        self.cpu_history.append(
-            cpu
-        )
-
-        self.gpu_history.append(
-            gpu_0_usage
-        )
-
-        self.gpu_1_history.append(
-            gpu_1_usage
-        )
-
-        self.ram_history.append(
-            ram
-        )
-
-        self.cpu_history = (
-            self.cpu_history[
-                -self.max_points:
-            ]
-        )
-
-        self.gpu_history = (
-            self.gpu_history[
-                -self.max_points:
-            ]
-        )
-
-        self.gpu_1_history = (
-            self.gpu_1_history[
-                -self.max_points:
-            ]
-        )
-
-        self.ram_history = (
-            self.ram_history[
-                -self.max_points:
-            ]
-        )
-        self.cpu_curve.setData(
-            self.cpu_history
-        )
-        self.gpu_curve.setData(
-            self.gpu_history
-        )
-        self.gpu_1_curve.setData(
-            self.gpu_1_history
-        )
-        self.ram_curve.setData(
-            self.ram_history
-        )
-        self.cpu_bottom.setData(
-            [0] * len(
-                self.cpu_history
-            )
-        )
-        self.gpu_bottom.setData(
-            [0] * len(
-                self.gpu_history
-            )
-        )
-        self.gpu_1_bottom.setData(
-            [0] * len(
-                self.gpu_1_history
-            )
-        )
-        self.ram_bottom.setData(
-            [0] * len(
-                self.ram_history
-            )
-        )
+        self.cpu_curve.setData(self.cpu_history)
+        self.gpu_curve.setData(self.gpu_history)
+        self.gpu_1_curve.setData(self.gpu_1_history)
+        self.ram_curve.setData(self.ram_history)
+        self.cpu_bottom.setData([0] * len(self.cpu_history))
+        self.gpu_bottom.setData([0] * len(self.gpu_history))
+        self.gpu_1_bottom.setData([0] * len(self.gpu_1_history))
+        self.ram_bottom.setData([0] * len(self.ram_history))
     def update_graph_visibility(
         self,
         index
