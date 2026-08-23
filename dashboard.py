@@ -900,6 +900,10 @@ class DashboardPage(CarbonFiberBackground):
             [0] * self.max_points
         )
 
+        self.gpu_1_history = (
+            [0] * self.max_points
+        )
+
         self.ram_history = (
             [0] * self.max_points
         )
@@ -1408,7 +1412,7 @@ class DashboardPage(CarbonFiberBackground):
                 "#8bc34a",
                 width=2
             ),
-            name="GPU"
+            name="GPU 0"
         )
 
         self.gpu_bottom = pg.PlotDataItem(
@@ -1432,6 +1436,38 @@ class DashboardPage(CarbonFiberBackground):
 
         self.graph.addItem(
             self.gpu_curve
+        )
+
+        self.gpu_1_curve = pg.PlotDataItem(
+            self.gpu_1_history,
+            pen=pg.mkPen(
+                "#26c6da",
+                width=2
+            ),
+            name="GPU 1"
+        )
+
+        self.gpu_1_bottom = pg.PlotDataItem(
+            [0] * self.max_points
+        )
+
+        self.gpu_1_fill = pg.FillBetweenItem(
+            self.gpu_1_curve,
+            self.gpu_1_bottom,
+            brush=pg.mkBrush(
+                38,
+                198,
+                218,
+                35
+            )
+        )
+
+        self.graph.addItem(
+            self.gpu_1_fill
+        )
+
+        self.graph.addItem(
+            self.gpu_1_curve
         )
 
         # =================================================
@@ -1788,6 +1824,18 @@ class DashboardPage(CarbonFiberBackground):
             else 0
         )
 
+        gpu_0_usage = (
+            gpu_adapter_usage[0]
+            if len(gpu_adapter_usage) > 0
+            else gpu_usage
+        )
+
+        gpu_1_usage = (
+            gpu_adapter_usage[1]
+            if len(gpu_adapter_usage) > 1
+            else 0
+        )
+
         gpu_temperature = None
 
         vram_used = None
@@ -1817,6 +1865,9 @@ class DashboardPage(CarbonFiberBackground):
                 gpu_usage = (
                     utilization.gpu
                 )
+
+                if not gpu_adapter_usage:
+                    gpu_0_usage = gpu_usage
 
             except Exception:
 
@@ -1986,7 +2037,11 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         self.gpu_history.append(
-            gpu_usage
+            gpu_0_usage
+        )
+
+        self.gpu_1_history.append(
+            gpu_1_usage
         )
 
         self.ram_history.append(
@@ -2001,6 +2056,12 @@ class DashboardPage(CarbonFiberBackground):
 
         self.gpu_history = (
             self.gpu_history[
+                -self.max_points:
+            ]
+        )
+
+        self.gpu_1_history = (
+            self.gpu_1_history[
                 -self.max_points:
             ]
         )
@@ -2023,6 +2084,10 @@ class DashboardPage(CarbonFiberBackground):
             self.gpu_history
         )
 
+        self.gpu_1_curve.setData(
+            self.gpu_1_history
+        )
+
         self.ram_curve.setData(
             self.ram_history
         )
@@ -2036,6 +2101,12 @@ class DashboardPage(CarbonFiberBackground):
         self.gpu_bottom.setData(
             [0] * len(
                 self.gpu_history
+            )
+        )
+
+        self.gpu_1_bottom.setData(
+            [0] * len(
+                self.gpu_1_history
             )
         )
 
@@ -2063,6 +2134,9 @@ class DashboardPage(CarbonFiberBackground):
             self.gpu_curve.show()
             self.gpu_fill.show()
 
+            self.gpu_1_curve.show()
+            self.gpu_1_fill.show()
+
             self.ram_curve.show()
             self.ram_fill.show()
 
@@ -2074,6 +2148,9 @@ class DashboardPage(CarbonFiberBackground):
 
             self.gpu_curve.hide()
             self.gpu_fill.hide()
+
+            self.gpu_1_curve.hide()
+            self.gpu_1_fill.hide()
 
             self.ram_curve.show()
             self.ram_fill.show()
@@ -2087,6 +2164,9 @@ class DashboardPage(CarbonFiberBackground):
             self.gpu_curve.hide()
             self.gpu_fill.hide()
 
+            self.gpu_1_curve.hide()
+            self.gpu_1_fill.hide()
+
             self.ram_curve.hide()
             self.ram_fill.hide()
 
@@ -2099,6 +2179,9 @@ class DashboardPage(CarbonFiberBackground):
             self.gpu_curve.show()
             self.gpu_fill.show()
 
+            self.gpu_1_curve.show()
+            self.gpu_1_fill.show()
+
             self.ram_curve.hide()
             self.ram_fill.hide()
 
@@ -2110,6 +2193,9 @@ class DashboardPage(CarbonFiberBackground):
 
             self.gpu_curve.hide()
             self.gpu_fill.hide()
+
+            self.gpu_1_curve.hide()
+            self.gpu_1_fill.hide()
 
             self.ram_curve.show()
             self.ram_fill.show()

@@ -170,7 +170,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addSpacing(15)
 
         # Quick Export Button
-        self.export_btn = QPushButton("📄 Export Diagnostic Report")
+        self.export_btn = QPushButton("Export Diagnostic Report")
         self.export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0d0d0d;
@@ -190,7 +190,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.export_btn)
 
         # Mini Overlay Toggle Button
-        self.overlay_btn = QPushButton("📌 Toggle Floating Overlay")
+        self.overlay_btn = QPushButton("Toggle Floating Overlay")
         self.overlay_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0d0d0d;
@@ -217,10 +217,11 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(speed_lbl)
 
         self.speed_combo = QComboBox()
-        self.speed_combo.addItem("🚀 Task Manager Speed (500ms)", 500)
-        self.speed_combo.addItem("⚡ Ultra Fast (250ms)", 250)
-        self.speed_combo.addItem("⏱ Normal Speed (1000ms)", 1000)
-        self.speed_combo.addItem("🌿 Eco Saver (2000ms)", 2000)
+        self.speed_combo.addItem("Task Manager Speed (500ms)", 500)
+        self.speed_combo.addItem("Ultra Fast (250ms)", 250)
+        self.speed_combo.addItem("Normal Speed (1000ms)", 1000)
+        self.speed_combo.addItem("Eco Saver (2000ms)", 2000)
+        self.speed_combo.setCurrentIndex(3)
         self.speed_combo.setStyleSheet("""
             QComboBox {
                 background-color: #0d0d0d;
@@ -476,10 +477,10 @@ class MainWindow(QMainWindow):
             ram = psutil.virtual_memory().percent
 
             if cpu > 85:
-                self.status.setText(f"⚠ HIGH CPU: {cpu:.0f}%")
+                self.status.setText(f"HIGH CPU: {cpu:.0f}%")
                 self.status.setStyleSheet("color: #e53935; font-weight: bold; font-size: 10px;")
             elif ram > 90:
-                self.status.setText(f"⚠ HIGH RAM: {ram:.0f}%")
+                self.status.setText(f"HIGH RAM: {ram:.0f}%")
                 self.status.setStyleSheet("color: #e53935; font-weight: bold; font-size: 10px;")
             else:
                 self.status.setText("●  MONITORING ACTIVE")
