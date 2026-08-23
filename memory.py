@@ -1,7 +1,7 @@
 import psutil
 import pyqtgraph as pg
 
-from PySide6.QtCore import QTimer, Qt, QRectF, QFileInfo
+from PySide6.QtCore import QTimer, Qt, QRectF, QFileInfo, Signal, QPoint
 from PySide6.QtGui import (
     QPainter,
     QColor,
@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
     QFileIconProvider,
     QStyle,
     QScrollArea,
+    QToolTip,
+    QComboBox,
 )
 
 from dashboard import CarbonFiberBackground
@@ -43,11 +45,22 @@ APP_COLORS = [
 
 class MemoryDonut(QWidget):
 
+    slice_hovered = Signal(object)
+    slice_selected = Signal(object)
+
     def __init__(self, parent=None):
 
         super().__init__(parent)
 
         self.data = []
+        self.display_values = {}
+        self.hovered_name = None
+        self.selected_name = None
+        self.system_percent = None
+
+        self.animation_timer = QTimer(self)
+        self.animation_timer.setInterval(16)
+        self.animation_timer.timeout.connect(self._animate_values)
 
         self.setMinimumHeight(300)
         self.setMinimumWidth(400)
@@ -55,16 +68,116 @@ class MemoryDonut(QWidget):
         self.setAttribute(
             Qt.WA_TranslucentBackground
         )
+        self.setMouseTracking(True)
 
     # =====================================================
     # SET DATA
     # =====================================================
 
-    def set_data(self, data):
+    def set_data(self, data, system_percent=None):
 
         self.data = data
+        self.system_percent = system_percent
+
+        active_names = {item["name"] for item in data}
+        self.display_values = {
+            name: value
+            for name, value in self.display_values.items()
+            if name in active_names
+        }
+        for item in data:
+            self.display_values.setdefault(item["name"], 0)
+
+        if self.hovered_name not in active_names:
+            self.hovered_name = None
+        if self.selected_name not in active_names:
+            self.selected_name = None
 
         self.update()
+        if not self.animation_timer.isActive():
+            self.animation_timer.start()
+
+    def set_selected(self, name):
+        self.selected_name = name
+        self.update()
+
+    def set_hovered(self, item):
+        self.hovered_name = item["name"] if item else None
+        self.update()
+
+    def _animate_values(self):
+        moving = False
+        for item in self.data:
+            name = item["name"]
+            current = self.display_values.get(name, 0)
+            target = item["value"]
+            if abs(target - current) > 1024:
+                self.display_values[name] = current + (target - current) * 0.22
+                moving = True
+            else:
+                self.display_values[name] = target
+        self.update()
+        if not moving:
+            self.animation_timer.stop()
+
+    def _slice_at(self, position):
+        width = self.width()
+        height = self.height()
+        center = QPoint(width // 2, height // 2)
+        dx = position.x() - center.x()
+        dy = position.y() - center.y()
+        radius = (dx * dx + dy * dy) ** 0.5
+        diameter = min(width, height) * 0.60
+        if radius < diameter * 0.29 or radius > diameter * 0.53:
+            return None
+
+        total = sum(self.display_values.get(item["name"], item["value"]) for item in self.data)
+        if total <= 0:
+            return None
+
+        angle = (180 / 3.141592653589793) * __import__("math").atan2(-dy, dx)
+        clockwise_angle = (90 - angle) % 360
+        cursor = 0
+        for item in self.data:
+            span = self.display_values.get(item["name"], item["value"]) / total * 360
+            if cursor <= clockwise_angle < cursor + span:
+                return item
+            cursor += span
+        return None
+
+    def mouseMoveEvent(self, event):
+        item = self._slice_at(event.position().toPoint())
+        name = item["name"] if item else None
+        if name != self.hovered_name:
+            self.hovered_name = name
+            self.slice_hovered.emit(item)
+            self.update()
+        if item:
+            total = sum(entry["value"] for entry in self.data)
+            percentage = item["value"] / total * 100 if total else 0
+            QToolTip.showText(
+                self.mapToGlobal(event.position().toPoint()),
+                f"<b>{item['name']}</b><br>{item['value'] / (1024 ** 3):.2f} GB RAM<br>{percentage:.1f}% of process memory",
+                self,
+            )
+        else:
+            QToolTip.hideText()
+
+    def leaveEvent(self, event):
+        self.hovered_name = None
+        self.slice_hovered.emit(None)
+        QToolTip.hideText()
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            item = self._slice_at(event.position().toPoint())
+            if item:
+                self.selected_name = item["name"]
+                self.slice_selected.emit(item)
+                self.update()
+        super().mousePressEvent(event)
 
     # =====================================================
     # PAINT DONUT
@@ -91,7 +204,7 @@ class MemoryDonut(QWidget):
         diameter = min(
             width,
             height
-        ) * 0.60
+        ) * 0.72
 
         rect = QRectF(
             center_x - diameter / 2,
@@ -113,7 +226,7 @@ class MemoryDonut(QWidget):
         )
 
         background_pen.setCapStyle(
-            Qt.RoundCap
+            Qt.FlatCap
         )
 
         painter.setPen(
@@ -130,10 +243,7 @@ class MemoryDonut(QWidget):
         # TOTAL PROCESS MEMORY
         # =================================================
 
-        total = sum(
-            item["value"]
-            for item in self.data
-        )
+        total = sum(item["value"] for item in self.data)
 
         if total <= 0:
 
@@ -149,7 +259,7 @@ class MemoryDonut(QWidget):
 
         for item in self.data:
 
-            value = item["value"]
+            value = self.display_values.get(item["name"], item["value"])
 
             if value <= 0:
                 continue
@@ -164,9 +274,21 @@ class MemoryDonut(QWidget):
                 * 16
             )
 
-            color = QColor(
-                item["color"]
-            )
+            color = QColor(item["color"])
+            is_hovered = item["name"] == self.hovered_name
+            is_selected = item["name"] == self.selected_name
+            offset = 7 if is_hovered else 3 if is_selected else 0
+            angle = (start_angle / 16) - 90
+            import math
+            offset_x = math.cos(math.radians(angle)) * offset
+            offset_y = -math.sin(math.radians(angle)) * offset
+            slice_rect = rect.translated(offset_x, offset_y)
+
+            if is_hovered:
+                glow_pen = QPen(QColor(color.red(), color.green(), color.blue(), 55))
+                glow_pen.setWidth(34)
+                painter.setPen(glow_pen)
+                painter.drawArc(slice_rect, int(start_angle), int(span_angle))
 
             pen = QPen(
                 color
@@ -177,7 +299,7 @@ class MemoryDonut(QWidget):
             )
 
             pen.setCapStyle(
-                Qt.RoundCap
+                Qt.FlatCap
             )
 
             painter.setPen(
@@ -185,7 +307,7 @@ class MemoryDonut(QWidget):
             )
 
             painter.drawArc(
-                rect,
+                slice_rect,
                 int(start_angle),
                 int(span_angle)
             )
@@ -211,11 +333,7 @@ class MemoryDonut(QWidget):
             Qt.NoPen
         )
 
-        painter.setBrush(
-            QBrush(
-                QColor("#090909")
-            )
-        )
+        painter.setBrush(QBrush(QColor("#090909")))
 
         painter.drawEllipse(
             inner_rect
@@ -225,9 +343,10 @@ class MemoryDonut(QWidget):
         # CENTER VALUE
         # =================================================
 
-        used_gb = (
-            total / (1024 ** 3)
-        )
+        hovered_item = next((item for item in self.data if item["name"] == self.hovered_name), None)
+        center_name = hovered_item["name"] if hovered_item else "PROCESS MEMORY"
+        center_value = hovered_item["value"] if hovered_item else total
+        used_gb = center_value / (1024 ** 3)
 
         painter.setPen(
             QColor("#eeeeee")
@@ -251,7 +370,7 @@ class MemoryDonut(QWidget):
         painter.drawText(
             value_rect,
             Qt.AlignCenter,
-            f"{used_gb:.1f} GB"
+            f"{used_gb:.2f} GB"
         )
 
         # =================================================
@@ -279,10 +398,46 @@ class MemoryDonut(QWidget):
         painter.drawText(
             label_rect,
             Qt.AlignCenter,
-            "PROCESS MEMORY"
+            center_name.upper()
         )
 
+        if hovered_item:
+            percentage = hovered_item["value"] / total * 100 if total else 0
+            painter.setPen(QColor("#888888"))
+            painter.drawText(QRectF(center_x - 100, center_y + 38, 200, 20), Qt.AlignCenter, f"{percentage:.1f}% OF TOTAL")
+        elif self.system_percent is not None:
+            painter.setPen(QColor("#555555"))
+            painter.drawText(QRectF(center_x - 100, center_y + 38, 200, 20), Qt.AlignCenter, f"SYSTEM RAM {self.system_percent:.1f}%")
+
         painter.end()
+
+
+# =========================================================
+# APPLICATION ROW
+# =========================================================
+
+class ApplicationMemoryRow(QFrame):
+
+    hovered = Signal(object)
+    selected = Signal(object)
+
+    def __init__(self, item, parent=None):
+        super().__init__(parent)
+        self.item = item
+        self.setMouseTracking(True)
+
+    def enterEvent(self, event):
+        self.hovered.emit(self.item)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.hovered.emit(None)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.selected.emit(self.item)
+        super().mousePressEvent(event)
 
 
 # =========================================================
@@ -310,6 +465,8 @@ class MemoryPage(CarbonFiberBackground):
         # =================================================
 
         self.application_data = []
+        self.process_data = []
+        self.view_mode = "grouped"
 
         # Number of individual processes/apps
         # displayed separately.
@@ -441,6 +598,8 @@ class MemoryPage(CarbonFiberBackground):
         )
 
         self.donut = MemoryDonut()
+        self.donut.slice_hovered.connect(self._highlight_application)
+        self.donut.slice_selected.connect(self._select_application)
 
         donut_layout.addWidget(
             self.donut
@@ -556,9 +715,20 @@ class MemoryPage(CarbonFiberBackground):
             self.app_list_widget
         )
 
-        app_layout.addWidget(
-            scroll
-        )
+        mode_row = QHBoxLayout()
+        mode_label = QLabel("VIEW")
+        mode_label.setObjectName("app_percent")
+        mode_row.addWidget(mode_label)
+        self.view_mode_box = QComboBox()
+        self.view_mode_box.addItem("Grouped", "grouped")
+        self.view_mode_box.addItem("Top Processes", "top")
+        self.view_mode_box.addItem("All Processes", "all")
+        self.view_mode_box.setToolTip("Choose how process memory is grouped")
+        self.view_mode_box.currentIndexChanged.connect(self._change_view_mode)
+        mode_row.addWidget(self.view_mode_box, 1)
+        app_layout.addLayout(mode_row)
+
+        app_layout.addWidget(scroll)
 
         # =================================================
         # ADD TOP PANELS
@@ -787,6 +957,25 @@ class MemoryPage(CarbonFiberBackground):
     # UPDATE MEMORY
     # =====================================================
 
+    def _change_view_mode(self):
+        self.view_mode = self.view_mode_box.currentData()
+        memory = psutil.virtual_memory()
+        self.update_application_memory(memory.total)
+
+    def _highlight_application(self, item):
+        name = item["name"] if item else None
+        for index in range(self.app_list_layout.count()):
+            row = self.app_list_layout.itemAt(index).widget()
+            if isinstance(row, ApplicationMemoryRow):
+                row.setProperty("active", row.item["name"] == name)
+                row.style().unpolish(row)
+                row.style().polish(row)
+
+    def _select_application(self, item):
+        name = item["name"] if item else None
+        self.donut.set_selected(name)
+        self._highlight_application(item)
+
     def update_memory(self):
 
         # =================================================
@@ -905,15 +1094,17 @@ class MemoryPage(CarbonFiberBackground):
             reverse=True
         )
 
+        self.process_data = [
+            {"name": name, "value": memory, "icon_path": process_icons.get(name, "")}
+            for name, memory in sorted_processes
+        ]
+
         # =================================================
         # TOP APPLICATIONS
         # =================================================
 
-        top_processes = (
-            sorted_processes[
-                :self.max_apps
-            ]
-        )
+        top_processes = sorted_processes[:self.max_apps]
+        visible_processes = sorted_processes if self.view_mode == "all" else top_processes
 
         max_memory = (
             top_processes[0][1]
@@ -943,7 +1134,7 @@ class MemoryPage(CarbonFiberBackground):
             name,
             memory
         ) in enumerate(
-            top_processes
+            visible_processes
         ):
 
             color = APP_COLORS[
@@ -974,7 +1165,7 @@ class MemoryPage(CarbonFiberBackground):
         # OTHER APPS
         # =================================================
 
-        if other_memory > 0:
+        if other_memory > 0 and self.view_mode == "grouped":
 
             chart_data.append(
                 {
@@ -997,7 +1188,8 @@ class MemoryPage(CarbonFiberBackground):
         # =================================================
 
         self.donut.set_data(
-            chart_data
+            chart_data,
+            psutil.virtual_memory().percent,
         )
 
         # =================================================
@@ -1081,11 +1273,14 @@ class MemoryPage(CarbonFiberBackground):
             # ROW
             # =================================================
 
-            row = QFrame()
+            row = ApplicationMemoryRow(item)
 
             row.setObjectName(
                 "application_row"
             )
+
+            row.hovered.connect(self.donut.set_hovered)
+            row.selected.connect(self._select_application)
 
             row_layout = QHBoxLayout(
                 row

@@ -750,6 +750,11 @@ if __name__ == "__main__":
         border: 1px solid #3a3a3a;
     }
 
+    #application_row[active="true"] {
+        background-color: #1b1b1b;
+        border: 1px solid #666666;
+    }
+
     #app_name {
         color: #d5d5d5;
         font-size: 11px;
