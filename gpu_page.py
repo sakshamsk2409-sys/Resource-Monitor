@@ -841,3 +841,4 @@ class GPUPerformancePage(CarbonFiberBackground):
 
             # Redraw
             self.canvas.draw_idle()
+
