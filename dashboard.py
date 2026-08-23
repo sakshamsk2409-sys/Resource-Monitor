@@ -4,10 +4,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-
 from urllib.error import URLError
 from urllib.request import urlopen
-
 import psutil
 import pyqtgraph as pg
 
@@ -48,15 +46,7 @@ from PySide6.QtWidgets import (
     QComboBox,
 )
 
-
-# =========================================================
-# CARBON-FIBRE BACKGROUND
-# =========================================================
-
 class CarbonFiberBackground(QWidget):
-
-    """Near-black twill weave used behind the Performance Cockpit."""
-
     def __init__(self, parent=None):
 
         super().__init__(parent)
@@ -77,8 +67,6 @@ class CarbonFiberBackground(QWidget):
             QColor("#050505")
         )
 
-        # The staggered, diagonal strips suggest a twill weave without
-        # introducing the high-contrast grid of a checkerboard pattern.
         tile = 18
         width = self.width()
         height = self.height()
@@ -126,11 +114,6 @@ class CarbonFiberBackground(QWidget):
                 )
 
         painter.end()
-
-
-# =========================================================
-# PERFORMANCE GAUGE
-# =========================================================
 
 class PerformanceGauge(QWidget):
 
@@ -260,10 +243,6 @@ class PerformanceGauge(QWidget):
             self.value = self.display_value
             self.update()
 
-    # =====================================================
-    # VALUE COLOR
-    # =====================================================
-
     def get_value_color(self):
 
         percentage = (
@@ -294,10 +273,6 @@ class PerformanceGauge(QWidget):
             self.accent
         )
 
-    # =====================================================
-    # PAINT
-    # =====================================================
-
     def paintEvent(self, event):
 
         painter = QPainter(
@@ -316,10 +291,6 @@ class PerformanceGauge(QWidget):
             height / 2
         )
 
-        # =================================================
-        # GAUGE DIMENSIONS
-        # =================================================
-
         size = min(
             width,
             height
@@ -328,10 +299,6 @@ class PerformanceGauge(QWidget):
         radius = (
             size * 0.37
         )
-
-        # =================================================
-        # BACKGROUND
-        # =================================================
 
         painter.setPen(
             Qt.NoPen
@@ -351,10 +318,6 @@ class PerformanceGauge(QWidget):
                 (radius + 25) * 2
             )
         )
-
-        # =================================================
-        # OUTER RING
-        # =================================================
 
         outer_pen = QPen(
             QColor(
@@ -383,20 +346,12 @@ class PerformanceGauge(QWidget):
             )
         )
 
-        # =================================================
-        # GAUGE ANGLES
-        # =================================================
-
         start_angle = 225
         end_angle = -45
 
         total_angle = (
             start_angle - end_angle
         )
-
-        # =================================================
-        # BASE TRACK
-        # =================================================
 
         track_pen = QPen(
             QColor(
@@ -428,10 +383,6 @@ class PerformanceGauge(QWidget):
             int(start_angle * 16),
             int(-total_angle * 16)
         )
-
-        # =================================================
-        # REDLINE TRACK
-        # =================================================
 
         redline_ratio = (
             self.redline - self.minimum
@@ -482,10 +433,7 @@ class PerformanceGauge(QWidget):
             )
         )
 
-        # =================================================
         # ACTIVE ARC
-        # =================================================
-
         value_ratio = (
             self.value - self.minimum
         ) / (
@@ -522,11 +470,7 @@ class PerformanceGauge(QWidget):
             int(start_angle * 16),
             int(-active_angle * 16)
         )
-
-        # =================================================
         # TICKS
-        # =================================================
-
         painter.setPen(
             QPen(
                 QColor(
@@ -592,11 +536,7 @@ class PerformanceGauge(QWidget):
                 QPointF(x1, y1),
                 QPointF(x2, y2)
             )
-
-        # =================================================
         # NEEDLE
-        # =================================================
-
         needle_ratio = value_ratio
 
         needle_angle = math.radians(
@@ -652,9 +592,7 @@ class PerformanceGauge(QWidget):
             )
         )
 
-        # =================================================
         # NEEDLE HUB
-        # =================================================
 
         painter.setPen(
             Qt.NoPen
@@ -719,10 +657,6 @@ class PerformanceGauge(QWidget):
             self.title.upper()
         )
 
-        # =================================================
-        # DIGITAL VALUE
-        # =================================================
-
         value_text = "N/A" if not self.value_available else f"{self.value:.0f}"
 
         painter.setPen(
@@ -752,10 +686,6 @@ class PerformanceGauge(QWidget):
             value_text
         )
 
-        # =================================================
-        # UNIT
-        # =================================================
-
         painter.setPen(
             active_color
         )
@@ -780,10 +710,6 @@ class PerformanceGauge(QWidget):
             Qt.AlignCenter,
             self.unit
         )
-
-        # =================================================
-        # STATUS
-        # =================================================
 
         if value_ratio >= redline_ratio:
 
@@ -837,9 +763,6 @@ class PerformanceGauge(QWidget):
         painter.end()
 
 
-# =========================================================
-# DASHBOARD PAGE
-# =========================================================
 
 class DashboardPage(CarbonFiberBackground):
 
@@ -850,9 +773,6 @@ class DashboardPage(CarbonFiberBackground):
         self.lhm_process = None
         self.start_libre_hardware_monitor()
 
-        # =================================================
-        # GPU INITIALIZATION
-        # =================================================
 
         self.gpu_available = False
         self.gpu_handle = None
@@ -886,10 +806,6 @@ class DashboardPage(CarbonFiberBackground):
                 "NVIDIA GPU NOT DETECTED"
             )
 
-        # =================================================
-        # HISTORY
-        # =================================================
-
         self.max_points = 60
 
         self.cpu_history = (
@@ -908,16 +824,7 @@ class DashboardPage(CarbonFiberBackground):
             [0] * self.max_points
         )
 
-        # =================================================
-        # BUILD UI
-        # =================================================
-
         self.setup_ui()
-
-        # =================================================
-        # TIMER
-        # =================================================
-
         self.timer = QTimer(
             self
         )
@@ -1015,10 +922,6 @@ class DashboardPage(CarbonFiberBackground):
         ):
             gauge.finish_startup_sweep()
 
-    # =====================================================
-    # SETUP UI
-    # =====================================================
-
     def setup_ui(self):
 
         layout = QVBoxLayout(
@@ -1036,14 +939,11 @@ class DashboardPage(CarbonFiberBackground):
             10
         )
 
-        # =================================================
-        # HEADER
-        # =================================================
 
         header = QHBoxLayout()
 
         title = QLabel(
-            "PERFORMANCE COCKPIT"
+            " COCKPIT"
         )
 
         title.setObjectName(
@@ -1072,10 +972,6 @@ class DashboardPage(CarbonFiberBackground):
             header
         )
 
-        # =================================================
-        # GAUGE ROW 1
-        # =================================================
-
         gauge_row_1 = QHBoxLayout()
 
         gauge_row_1.setSpacing(
@@ -1101,7 +997,7 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         self.gpu_0_gauge = PerformanceGauge(
-            title="GPU 0 USAGE",
+            title="GPU 0",
             unit="%",
             accent="#29b6f6",
             redline=90
@@ -1124,9 +1020,6 @@ class DashboardPage(CarbonFiberBackground):
             1
         )
 
-        # =================================================
-        # GAUGE ROW 2
-        # =================================================
 
         gauge_row_2 = QHBoxLayout()
 
@@ -1161,7 +1054,7 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         self.gpu_1_gauge = PerformanceGauge(
-            title="GPU 1 USAGE",
+            title="GPU 1",
             unit="%",
             accent="#26c6da",
             redline=90
@@ -1175,10 +1068,6 @@ class DashboardPage(CarbonFiberBackground):
             gauge_row_2,
             1
         )
-
-        # =================================================
-        # GPU INFO BAR
-        # =================================================
 
         gpu_info = QFrame()
 
@@ -1243,10 +1132,6 @@ class DashboardPage(CarbonFiberBackground):
             gpu_info
         )
 
-        # =================================================
-        # TELEMETRY HEADER
-        # =================================================
-
         telemetry_header = QHBoxLayout()
 
         telemetry_title = QLabel(
@@ -1294,10 +1179,6 @@ class DashboardPage(CarbonFiberBackground):
         layout.addLayout(
             telemetry_header
         )
-
-        # =================================================
-        # GRAPH
-        # =================================================
 
         self.graph = pg.PlotWidget()
 
@@ -1358,17 +1239,11 @@ class DashboardPage(CarbonFiberBackground):
             )
         )
 
-        # =================================================
-        # LEGEND
-        # =================================================
 
         self.graph.addLegend(
             offset=(10, 10)
         )
 
-        # =================================================
-        # CPU
-        # =================================================
 
         self.cpu_curve = pg.PlotDataItem(
             self.cpu_history,
@@ -1401,11 +1276,6 @@ class DashboardPage(CarbonFiberBackground):
         self.graph.addItem(
             self.cpu_curve
         )
-
-        # =================================================
-        # GPU
-        # =================================================
-
         self.gpu_curve = pg.PlotDataItem(
             self.gpu_history,
             pen=pg.mkPen(
@@ -1470,9 +1340,6 @@ class DashboardPage(CarbonFiberBackground):
             self.gpu_1_curve
         )
 
-        # =================================================
-        # RAM
-        # =================================================
 
         self.ram_curve = pg.PlotDataItem(
             self.ram_history,
@@ -1511,17 +1378,10 @@ class DashboardPage(CarbonFiberBackground):
             1
         )
 
-        # =================================================
-        # GRAPH SELECTION
-        # =================================================
-
         self.metric_selector.currentIndexChanged.connect(
             self.update_graph_visibility
         )
 
-    # =====================================================
-    # UPDATE DATA
-    # =====================================================
 
     def get_cpu_temperature(self):
 
@@ -1797,63 +1657,33 @@ class DashboardPage(CarbonFiberBackground):
 
     def update_data(self):
 
-        # =================================================
-        # CPU
-        # =================================================
-
         cpu = psutil.cpu_percent(
             interval=None
         )
 
         cpu_temperature = self.get_cpu_temperature()
         gpu_adapter_usage = self.get_lhm_gpu_usage()
-
-        # =================================================
-        # RAM
-        # =================================================
-
         ram = psutil.virtual_memory().percent
-
-        # =================================================
-        # GPU DEFAULT
-        # =================================================
-
         gpu_usage = (
             self.gpu_history[-1]
             if self.gpu_history
             else 0
         )
-
         gpu_0_usage = (
             gpu_adapter_usage[0]
             if len(gpu_adapter_usage) > 0
             else gpu_usage
         )
-
         gpu_1_usage = (
             gpu_adapter_usage[1]
             if len(gpu_adapter_usage) > 1
             else 0
         )
-
         gpu_temperature = None
-
         vram_used = None
-
         vram_total = None
-
         power_usage = None
-
-        # =================================================
-        # NVIDIA
-        # =================================================
-
         if self.gpu_available:
-
-            # ---------------------------------------------
-            # GPU UTILIZATION
-            # ---------------------------------------------
-
             try:
 
                 utilization = (
@@ -1876,11 +1706,6 @@ class DashboardPage(CarbonFiberBackground):
                     if self.gpu_history
                     else 0
                 )
-
-            # ---------------------------------------------
-            # TEMPERATURE
-            # ---------------------------------------------
-
             try:
 
                 gpu_temperature = (
@@ -1893,10 +1718,6 @@ class DashboardPage(CarbonFiberBackground):
             except Exception:
 
                 gpu_temperature = None
-
-            # ---------------------------------------------
-            # VRAM
-            # ---------------------------------------------
 
             try:
 
@@ -1918,10 +1739,6 @@ class DashboardPage(CarbonFiberBackground):
 
                 pass
 
-            # ---------------------------------------------
-            # POWER
-            # ---------------------------------------------
-
             try:
 
                 power_usage = (
@@ -1935,9 +1752,7 @@ class DashboardPage(CarbonFiberBackground):
 
                 pass
 
-        # =================================================
-        # UPDATE GAUGES
-        # =================================================
+
 
         self.cpu_gauge.setValue(
             cpu
@@ -1958,20 +1773,11 @@ class DashboardPage(CarbonFiberBackground):
         self.ram_gauge.setValue(
             ram
         )
-
-        # =================================================
-        # TEMPERATURE
-        # =================================================
-
         if gpu_temperature is not None:
 
             self.temp_gauge.setValue(
                 gpu_temperature
             )
-
-        # =================================================
-        # VRAM
-        # =================================================
 
         if (
             vram_used is not None
@@ -2011,10 +1817,6 @@ class DashboardPage(CarbonFiberBackground):
                 "VRAM N/A"
             )
 
-        # =================================================
-        # POWER
-        # =================================================
-
         if power_usage is not None:
 
             self.power_label.setText(
@@ -2028,9 +1830,6 @@ class DashboardPage(CarbonFiberBackground):
                 "POWER N/A"
             )
 
-        # =================================================
-        # HISTORY
-        # =================================================
 
         self.cpu_history.append(
             cpu
@@ -2071,61 +1870,44 @@ class DashboardPage(CarbonFiberBackground):
                 -self.max_points:
             ]
         )
-
-        # =================================================
-        # UPDATE GRAPH
-        # =================================================
-
         self.cpu_curve.setData(
             self.cpu_history
         )
-
         self.gpu_curve.setData(
             self.gpu_history
         )
-
         self.gpu_1_curve.setData(
             self.gpu_1_history
         )
-
         self.ram_curve.setData(
             self.ram_history
         )
-
         self.cpu_bottom.setData(
             [0] * len(
                 self.cpu_history
             )
         )
-
         self.gpu_bottom.setData(
             [0] * len(
                 self.gpu_history
             )
         )
-
         self.gpu_1_bottom.setData(
             [0] * len(
                 self.gpu_1_history
             )
         )
-
         self.ram_bottom.setData(
             [0] * len(
                 self.ram_history
             )
         )
-
-    # =====================================================
-    # GRAPH VISIBILITY
-    # =====================================================
-
     def update_graph_visibility(
         self,
         index
     ):
 
-        # CPU / GPU / RAM
+    
         if index == 0:
 
             self.cpu_curve.show()
@@ -2199,11 +1981,6 @@ class DashboardPage(CarbonFiberBackground):
 
             self.ram_curve.show()
             self.ram_fill.show()
-
-    # =====================================================
-    # CLEANUP
-    # =====================================================
-
     def closeEvent(
         self,
         event
