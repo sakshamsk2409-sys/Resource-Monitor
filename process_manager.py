@@ -101,7 +101,7 @@ class ProcessManagerPage(CarbonFiberBackground):
         self.terminate_btn.clicked.connect(self.terminate_selected_process)
         controls_layout.addWidget(self.terminate_btn)
 
-        self.kill_btn = QPushButton("⚡ Force Kill")
+        self.kill_btn = QPushButton("Force Kill")
         self.kill_btn.setStyleSheet(self.get_btn_style("#e53935"))
         self.kill_btn.clicked.connect(self.kill_selected_process)
         controls_layout.addWidget(self.kill_btn)

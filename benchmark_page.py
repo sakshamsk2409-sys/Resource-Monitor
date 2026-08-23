@@ -137,7 +137,7 @@ class BenchmarkPage(CarbonFiberBackground):
         control_card, control_layout = self.create_card("BENCHMARK CONTROLS")
         btn_layout = QHBoxLayout()
 
-        self.run_btn = QPushButton("🚀 Run Full Benchmark Suite")
+        self.run_btn = QPushButton("Run Full Benchmark Suite")
         self.run_btn.setStyleSheet("""
             QPushButton {
                 background-color: #ff8f00; color: #000000; font-weight: bold; border-radius: 4px; padding: 10px 20px; font-size: 12px;

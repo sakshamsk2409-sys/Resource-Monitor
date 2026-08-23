@@ -191,7 +191,6 @@ def export_system_report(output_dir=None):
     with open(html_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    # Launch in default browser
     try:
         webbrowser.open(f"file:///{os.path.abspath(html_file)}")
     except Exception:
