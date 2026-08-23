@@ -19,12 +19,10 @@ numpy>=1.26,<3
 # NVIDIA GPU telemetry (optional, required for NVIDIA GPU metrics)
 nvidia-ml-py>=12.0,<14
 
-# ------------------------------------------------------------
 # Optional Windows sensor support for CPU temperature detection
-# ------------------------------------------------------------
+
 # This project also supports reading CPU package temperature from a
 # bundled LibreHardwareMonitor executable when available.
-#
 # Manual setup (Windows):
 #   1. Download LibreHardwareMonitor from:
      https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases

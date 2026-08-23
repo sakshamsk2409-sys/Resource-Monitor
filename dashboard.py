@@ -839,7 +839,7 @@ class DashboardPage(CarbonFiberBackground):
 
         self.max_points = 60
 
-        self.gauge_refresh_settings = {
+        self.default_gauge_refresh_settings = {
             "cpu_load": 500,
             "cpu_temp": 800,
             "gpu_0": 700,
@@ -847,6 +847,16 @@ class DashboardPage(CarbonFiberBackground):
             "ram_load": 600,
             "gpu_1": 750,
         }
+
+        self.gauge_refresh_settings = dict(self.default_gauge_refresh_settings)
+        self.gauge_presets = {
+            1: dict(self.default_gauge_refresh_settings),
+            2: dict(self.default_gauge_refresh_settings),
+            3: dict(self.default_gauge_refresh_settings),
+        }
+        self.current_preset = 1
+        self.preset_path = Path(__file__).resolve().parent / "gauge_presets.json"
+        self.load_gauge_presets()
 
         self.gauge_timers = {}
 
@@ -1393,6 +1403,65 @@ class DashboardPage(CarbonFiberBackground):
             gpu_usage = self.get_lhm_gpu_usage()
             self.gpu_1_gauge.setValue(gpu_usage[1] if len(gpu_usage) > 1 else None)
 
+    def load_gauge_presets(self):
+        if not self.preset_path.exists():
+            self.gauge_presets = {
+                1: dict(self.default_gauge_refresh_settings),
+                2: dict(self.default_gauge_refresh_settings),
+                3: dict(self.default_gauge_refresh_settings),
+            }
+            self.gauge_refresh_settings = dict(self.gauge_presets[1])
+            return
+
+        try:
+            with open(self.preset_path, "r", encoding="utf-8") as preset_file:
+                saved = json.load(preset_file)
+        except (OSError, ValueError):
+            saved = {}
+
+        for preset_number in (1, 2, 3):
+            preset_data = saved.get(str(preset_number), {})
+            loaded_values = {}
+            for key, default_value in self.default_gauge_refresh_settings.items():
+                try:
+                    loaded_values[key] = max(100, int(preset_data.get(key, default_value)))
+                except (TypeError, ValueError):
+                    loaded_values[key] = default_value
+            self.gauge_presets[preset_number] = loaded_values
+
+        self.gauge_refresh_settings = dict(self.gauge_presets[self.current_preset])
+
+    def save_gauge_presets(self, preset_number=None):
+        if preset_number is None:
+            preset_number = self.current_preset
+
+        data = {}
+        for saved_preset_number, values in self.gauge_presets.items():
+            data[str(saved_preset_number)] = {key: int(value) for key, value in values.items()}
+
+        if preset_number in self.gauge_presets:
+            data[str(preset_number)] = {
+                key: int(value)
+                for key, value in self.gauge_presets[preset_number].items()
+            }
+
+        try:
+            with open(self.preset_path, "w", encoding="utf-8") as preset_file:
+                json.dump(data, preset_file, indent=2)
+        except OSError:
+            pass
+
+    def apply_gauge_preset(self, preset_number):
+        preset_number = int(preset_number)
+        if preset_number not in self.gauge_presets:
+            return
+
+        self.current_preset = preset_number
+        self.gauge_refresh_settings = dict(self.gauge_presets[preset_number])
+        for gauge_name, interval in self.gauge_refresh_settings.items():
+            if gauge_name in self.gauge_timers:
+                self.gauge_timers[gauge_name].setInterval(max(100, int(interval)))
+
     def set_gauge_refresh_interval(self, gauge_name, interval_ms):
         if gauge_name not in self.gauge_refresh_settings:
             return
@@ -1400,17 +1469,36 @@ class DashboardPage(CarbonFiberBackground):
         self.gauge_refresh_settings[gauge_name] = max(100, int(interval_ms))
         if gauge_name in self.gauge_timers:
             self.gauge_timers[gauge_name].setInterval(self.gauge_refresh_settings[gauge_name])
+        self.gauge_presets[self.current_preset][gauge_name] = self.gauge_refresh_settings[gauge_name]
 
     def open_gauge_refresh_dialog(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Gauge Refresh Settings")
         dialog.setModal(True)
-        dialog.resize(420, 280)
+        dialog.resize(420, 320)
 
-        form_layout = QFormLayout(dialog)
+        dialog_layout = QVBoxLayout(dialog)
+
+        preset_row = QHBoxLayout()
+        preset_label = QLabel("Preset")
+        preset_combo = QComboBox(dialog)
+        preset_combo.addItems(["Preset 1", "Preset 2", "Preset 3"])
+        preset_combo.setCurrentIndex(self.current_preset - 1)
+
+        save_button = QPushButton("Save")
+        save_button.clicked.connect(
+            lambda: self.save_gauge_presets(self.current_preset)
+        )
+
+        preset_row.addWidget(preset_label)
+        preset_row.addWidget(preset_combo)
+        preset_row.addStretch()
+        preset_row.addWidget(save_button)
+        dialog_layout.addLayout(preset_row)
+
+        form_layout = QFormLayout()
         form_layout.setLabelAlignment(Qt.AlignLeft)
 
-        controls = {}
         gauge_labels = {
             "cpu_load": "CPU Load",
             "cpu_temp": "CPU Temp",
@@ -1420,6 +1508,7 @@ class DashboardPage(CarbonFiberBackground):
             "gpu_1": "GPU 1 Usage",
         }
 
+        controls = {}
         for key, label in gauge_labels.items():
             spin_box = QSpinBox(dialog)
             spin_box.setRange(100, 5000)
@@ -1432,9 +1521,19 @@ class DashboardPage(CarbonFiberBackground):
             controls[key] = spin_box
             form_layout.addRow(label, spin_box)
 
+        dialog_layout.addLayout(form_layout)
+
+        preset_combo.currentIndexChanged.connect(
+            lambda index: self.apply_gauge_preset(index + 1)
+        )
+
+        save_button.clicked.connect(
+            lambda: self.save_gauge_presets(self.current_preset)
+        )
+
         button_box = QDialogButtonBox(QDialogButtonBox.Ok, dialog)
         button_box.accepted.connect(dialog.accept)
-        form_layout.addRow(button_box)
+        dialog_layout.addWidget(button_box)
 
         dialog.exec()
 
