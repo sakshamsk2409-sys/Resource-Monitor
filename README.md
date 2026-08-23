@@ -61,9 +61,10 @@ A high-performance, cyber-styled PySide6 desktop application for real-time monit
 |-----------|-----------|
 | GUI Framework | [PySide6](https://pypi.org/project/PySide6/) (Qt for Python) |
 | System Monitoring | [psutil](https://pypi.org/project/psutil/) |
+| Hardware Monitoring | [LibreHardwareMonitor](https://pypi.org/project/LibreHardwareMonitor/) |
 | Real-Time Plotting | [pyqtgraph](https://pypi.org/project/pyqtgraph/) |
 | Charts & Exports | [matplotlib](https://pypi.org/project/matplotlib/) |
-| GPU Metrics | [nvidia-ml-py](https://pypi.org/project/nvidia-ml-py/) (optional) |
+| GPU Metrics | [nvidia-ml-py](https://pypi.org/project/nvidia-ml-py/) |
 
 ---
 
