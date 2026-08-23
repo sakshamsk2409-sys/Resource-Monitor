@@ -46,6 +46,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QFrame,
     QComboBox,
+    QPushButton,
+    QDialog,
+    QFormLayout,
+    QSpinBox,
+    QDialogButtonBox,
 )
 
 class CarbonFiberBackground(QWidget):
@@ -834,6 +839,17 @@ class DashboardPage(CarbonFiberBackground):
 
         self.max_points = 60
 
+        self.gauge_refresh_settings = {
+            "cpu_load": 500,
+            "cpu_temp": 800,
+            "gpu_0": 700,
+            "gpu_temp": 900,
+            "ram_load": 600,
+            "gpu_1": 750,
+        }
+
+        self.gauge_timers = {}
+
         self.cpu_history = (
             [0] * self.max_points
         )
@@ -851,6 +867,14 @@ class DashboardPage(CarbonFiberBackground):
         )
 
         self.setup_ui()
+
+        for key, interval in self.gauge_refresh_settings.items():
+            timer = QTimer(self)
+            timer.setInterval(interval)
+            timer.timeout.connect(lambda gauge=key: self.refresh_gauge_value(gauge))
+            timer.start()
+            self.gauge_timers[key] = timer
+
         self.timer = QTimer(
             self
         )
@@ -1134,32 +1158,12 @@ class DashboardPage(CarbonFiberBackground):
 
         telemetry_header.addStretch()
 
-        metric_label = QLabel(
-            "VIEW:"
-        )
-
-        metric_label.setObjectName(
-            "telemetry_label"
-        )
-
-        self.metric_selector = QComboBox()
-
-        self.metric_selector.addItems(
-            [
-                "CPU / GPU / RAM",
-                "CPU / RAM",
-                "CPU",
-                "GPU",
-                "RAM",
-            ]
-        )
+        self.gauge_settings_button = QPushButton("GAUGE SETTINGS")
+        self.gauge_settings_button.setObjectName("telemetry_button")
+        self.gauge_settings_button.clicked.connect(self.open_gauge_refresh_dialog)
 
         telemetry_header.addWidget(
-            metric_label
-        )
-
-        telemetry_header.addWidget(
-            self.metric_selector
+            self.gauge_settings_button
         )
 
         layout.addLayout(
@@ -1364,10 +1368,75 @@ class DashboardPage(CarbonFiberBackground):
             1
         )
 
-        self.metric_selector.currentIndexChanged.connect(
-            self.update_graph_visibility
-        )
+    def refresh_gauge_value(self, gauge_name):
+        if gauge_name == "cpu_load":
+            self.cpu_gauge.setValue(psutil.cpu_percent(interval=None))
+        elif gauge_name == "cpu_temp":
+            self.cpu_temp_gauge.setValue(self.get_cpu_temperature())
+        elif gauge_name == "gpu_0":
+            gpu_usage = self.get_lhm_gpu_usage()
+            self.gpu_0_gauge.setValue(gpu_usage[0] if len(gpu_usage) > 0 else None)
+        elif gauge_name == "gpu_temp":
+            gpu_temperature = None
+            if self.gpu_available:
+                try:
+                    gpu_temperature = pynvml.nvmlDeviceGetTemperature(
+                        self.gpu_handle,
+                        pynvml.NVML_TEMPERATURE_GPU,
+                    )
+                except Exception:
+                    gpu_temperature = None
+            self.temp_gauge.setValue(gpu_temperature)
+        elif gauge_name == "ram_load":
+            self.ram_gauge.setValue(psutil.virtual_memory().percent)
+        elif gauge_name == "gpu_1":
+            gpu_usage = self.get_lhm_gpu_usage()
+            self.gpu_1_gauge.setValue(gpu_usage[1] if len(gpu_usage) > 1 else None)
 
+    def set_gauge_refresh_interval(self, gauge_name, interval_ms):
+        if gauge_name not in self.gauge_refresh_settings:
+            return
+
+        self.gauge_refresh_settings[gauge_name] = max(100, int(interval_ms))
+        if gauge_name in self.gauge_timers:
+            self.gauge_timers[gauge_name].setInterval(self.gauge_refresh_settings[gauge_name])
+
+    def open_gauge_refresh_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Gauge Refresh Settings")
+        dialog.setModal(True)
+        dialog.resize(420, 280)
+
+        form_layout = QFormLayout(dialog)
+        form_layout.setLabelAlignment(Qt.AlignLeft)
+
+        controls = {}
+        gauge_labels = {
+            "cpu_load": "CPU Load",
+            "cpu_temp": "CPU Temp",
+            "gpu_0": "GPU 0 Usage",
+            "gpu_temp": "GPU Temp",
+            "ram_load": "Memory Load",
+            "gpu_1": "GPU 1 Usage",
+        }
+
+        for key, label in gauge_labels.items():
+            spin_box = QSpinBox(dialog)
+            spin_box.setRange(100, 5000)
+            spin_box.setSingleStep(50)
+            spin_box.setSuffix(" ms")
+            spin_box.setValue(self.gauge_refresh_settings[key])
+            spin_box.valueChanged.connect(
+                lambda value, gauge_name=key: self.set_gauge_refresh_interval(gauge_name, value)
+            )
+            controls[key] = spin_box
+            form_layout.addRow(label, spin_box)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok, dialog)
+        button_box.accepted.connect(dialog.accept)
+        form_layout.addRow(button_box)
+
+        dialog.exec()
 
     def get_cpu_temperature(self):
 
@@ -1694,85 +1763,6 @@ class DashboardPage(CarbonFiberBackground):
         self.gpu_bottom.setData([0] * len(self.gpu_history))
         self.gpu_1_bottom.setData([0] * len(self.gpu_1_history))
         self.ram_bottom.setData([0] * len(self.ram_history))
-    def update_graph_visibility(
-        self,
-        index
-    ):
-
-    
-        if index == 0:
-
-            self.cpu_curve.show()
-            self.cpu_fill.show()
-
-            self.gpu_curve.show()
-            self.gpu_fill.show()
-
-            self.gpu_1_curve.show()
-            self.gpu_1_fill.show()
-
-            self.ram_curve.show()
-            self.ram_fill.show()
-
-        # CPU / RAM
-        elif index == 1:
-
-            self.cpu_curve.show()
-            self.cpu_fill.show()
-
-            self.gpu_curve.hide()
-            self.gpu_fill.hide()
-
-            self.gpu_1_curve.hide()
-            self.gpu_1_fill.hide()
-
-            self.ram_curve.show()
-            self.ram_fill.show()
-
-        # CPU
-        elif index == 2:
-
-            self.cpu_curve.show()
-            self.cpu_fill.show()
-
-            self.gpu_curve.hide()
-            self.gpu_fill.hide()
-
-            self.gpu_1_curve.hide()
-            self.gpu_1_fill.hide()
-
-            self.ram_curve.hide()
-            self.ram_fill.hide()
-
-        # GPU
-        elif index == 3:
-
-            self.cpu_curve.hide()
-            self.cpu_fill.hide()
-
-            self.gpu_curve.show()
-            self.gpu_fill.show()
-
-            self.gpu_1_curve.show()
-            self.gpu_1_fill.show()
-
-            self.ram_curve.hide()
-            self.ram_fill.hide()
-
-        # RAM
-        elif index == 4:
-
-            self.cpu_curve.hide()
-            self.cpu_fill.hide()
-
-            self.gpu_curve.hide()
-            self.gpu_fill.hide()
-
-            self.gpu_1_curve.hide()
-            self.gpu_1_fill.hide()
-
-            self.ram_curve.show()
-            self.ram_fill.show()
     def closeEvent(
         self,
         event
