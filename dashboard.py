@@ -1,14 +1,14 @@
-import math             
-import json
-import re
-import subprocess
-import sys
-import time
-import platform
-from pathlib import Path
-from urllib.error import URLError
-from urllib.request import urlopen
-import psutil
+import math                         # for math funtions and constants    
+import json                         # for reading and writing JSON files
+import re                           # allows to search, parse, extract, and manipulate strings based on specific text patterns
+import subprocess                   # for running external processes and commands
+import sys                          # system -specific parameters and functions
+import time                         # for time-related functions and operations
+import platform                     # to access information about the underlying platform (OS, architecture, etc.)
+from pathlib import Path            # for working with filesystem paths in an object-oriented way
+from urllib.error import URLError   # for handling errors that occur during URL operations
+from urllib.request import urlopen  # for opening and reading URLs
+import  psutil      
 import pyqtgraph as pg
 
 try:
@@ -280,7 +280,7 @@ class PerformanceGauge(QWidget):
             self.accent
         )
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):                                      # guage paint event
 
         painter = QPainter(
             self
@@ -378,7 +378,7 @@ class PerformanceGauge(QWidget):
         )
 
         start_angle = 225
-        end_angle = -45
+        end_angle = -45                 #315
 
         total_angle = (
             start_angle - end_angle
@@ -1007,7 +1007,7 @@ class DashboardPage(CarbonFiberBackground):
         laptop_suffix = " LAPTOP" if is_laptop else ""
         return f"{display_name} {memory_text}{laptop_suffix}"
 
-    def setup_ui(self):
+    def setup_ui(self):                                                 # guage setup
 
         layout = QVBoxLayout(
             self
