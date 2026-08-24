@@ -1825,7 +1825,6 @@ class DashboardPage(CarbonFiberBackground):
                 )
             except Exception:
                 gpu_temperature = None
-
         gpu_0_usage = (
             gpu_adapter_usage[0]
             if len(gpu_adapter_usage) > 0
@@ -1836,24 +1835,20 @@ class DashboardPage(CarbonFiberBackground):
             if len(gpu_adapter_usage) > 1
             else None
         )
-
         self.cpu_gauge.setValue(cpu)
         self.cpu_temp_gauge.setValue(cpu_temperature)
         self.ram_gauge.setValue(ram)
         self.temp_gauge.setValue(gpu_temperature)
         self.gpu_0_gauge.setValue(gpu_0_usage)
         self.gpu_1_gauge.setValue(gpu_1_usage)
-
         self.cpu_history.append(cpu)
         self.gpu_history.append(gpu_0_usage or 0)
         self.gpu_1_history.append(gpu_1_usage or 0)
         self.ram_history.append(ram)
-
         self.cpu_history = self.cpu_history[-self.max_points:]
         self.gpu_history = self.gpu_history[-self.max_points:]
         self.gpu_1_history = self.gpu_1_history[-self.max_points:]
         self.ram_history = self.ram_history[-self.max_points:]
-
         self.cpu_curve.setData(self.cpu_history)
         self.gpu_curve.setData(self.gpu_history)
         self.gpu_1_curve.setData(self.gpu_1_history)
