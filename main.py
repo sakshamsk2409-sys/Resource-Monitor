@@ -1,4 +1,33 @@
 import sys
+import subprocess
+import importlib.util
+
+
+def _auto_install_dependencies():
+    deps = [
+        "PySide6>=6.7,<7",
+        "psutil>=6.0,<8",
+        "pyqtgraph>=0.13,<1",
+        "matplotlib>=3.9,<4",
+        "numpy>=1.26,<3",
+        "nvidia-ml-py>=12.0,<14",
+    ]
+
+    missing = []
+    for dep in deps:
+        pkg_name = dep.split(">=")[0].split("==")[0].split("<")[0]
+        if importlib.util.find_spec(pkg_name) is None:
+            missing.append(dep)
+
+    if missing:
+        print("Missing dependencies detected. Installing...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing)
+        print("Dependencies installed successfully.")
+
+
+_auto_install_dependencies()
+
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
