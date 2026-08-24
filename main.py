@@ -1,4 +1,48 @@
 import sys
+import subprocess
+import importlib.util
+
+
+def _auto_install_dependencies():
+    deps = [
+        "PySide6>=6.7,<7",
+        "psutil>=6.0,<8",
+        "pyqtgraph>=0.13,<1",
+        "matplotlib>=3.9,<4",
+        "numpy>=1.26,<3",
+        "nvidia-ml-py>=12.0,<14",
+    ]
+
+    missing = []
+    for dep in deps:
+        pkg_name = dep.split(">=")[0].split("==")[0].split("<")[0]
+        if importlib.util.find_spec(pkg_name) is None:
+            missing.append(dep)
+
+    if not missing:
+        return
+
+    print("Missing dependencies detected. Installing...")
+
+    try:
+        subprocess.run(["uv", "--version"], check=True, capture_output=True)
+        subprocess.check_call(["uv", "pip", "install", "--python", sys.executable] + missing)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing)
+        except subprocess.CalledProcessError:
+            print("Auto-install failed. Please run manually:")
+            print(f"  uv pip install --python {sys.executable} {' '.join(missing)}")
+            print("or:")
+            print(f"  python -m pip install {' '.join(missing)}")
+            sys.exit(1)
+
+    print("Dependencies installed successfully.")
+
+
+_auto_install_dependencies()
+
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
