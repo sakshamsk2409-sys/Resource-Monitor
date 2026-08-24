@@ -1,3 +1,10 @@
+"""Network and disk telemetry dashboard page.
+
+This module renders the live bandwidth and storage activity view for the Resource
+Monitor app. It samples system counters on a timer and updates charts and tables
+showing recent throughput and active socket activity.
+"""
+
 import time
 import socket
 import psutil
@@ -24,6 +31,7 @@ from dashboard import CarbonFiberBackground
 class NetworkDiskPage(CarbonFiberBackground):
 
     def __init__(self, parent=None):
+        # Capture the baseline counters so we can compute rates from subsequent samples.
         super().__init__(parent)
 
         self.last_time = time.time()
@@ -37,23 +45,28 @@ class NetworkDiskPage(CarbonFiberBackground):
 
         self.setup_ui()
 
+        # Poll the system every half-second to keep throughput charts and counters current.
         self.timer = QTimer(self)
         self.timer.setInterval(500)
         self.timer.timeout.connect(self.update_telemetry)
         self.timer.start()
 
     def set_refresh_interval(self, ms):
+        # Allow callers to alter the sampling cadence when the page is resized or focused.
         self.timer.setInterval(ms)
 
     def pause_timer(self):
+        # Temporarily stop live updates without destroying the page or its graphs.
         if self.timer.isActive():
             self.timer.stop()
 
     def resume_timer(self):
+        # Resume polling after a pause so live telemetry continues with the current state.
         if not self.timer.isActive():
             self.timer.start()
 
     def setup_ui(self):
+        # Main page layout holds the header, scrollable dashboard, and all telemetry widgets.
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(35, 30, 35, 30)
         main_layout.setSpacing(20)
@@ -72,26 +85,27 @@ class NetworkDiskPage(CarbonFiberBackground):
         header_layout.addWidget(subtitle)
         main_layout.addLayout(header_layout)
 
-        # Scroll Area
+        # Scroll area keeps the telemetry page readable even when the graph/table content grows.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
+        # Content stack organizes the metrics cards and live charts into a single vertical flow.
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 10, 10, 10)
         content_layout.setSpacing(20)
 
-        # Metrics Row
+        # Metrics row summarizes current upload, download, and disk throughput values.
         content_layout.addLayout(self.create_metrics_row())
 
-        # Real-time Bandwidth Plot Card
+        # Real-time bandwidth chart shows upload/download demand over time.
         content_layout.addWidget(self.create_network_graph_card())
 
-        # Real-time Disk I/O Plot Card
+        # Real-time disk chart plots read/write throughput against recent history.
         content_layout.addWidget(self.create_disk_graph_card())
 
-        # Active Sockets Table Card
+        # Active socket table lists open network connections and their process IDs.
         content_layout.addWidget(self.create_sockets_card())
 
         content_layout.addStretch()
@@ -99,6 +113,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         main_layout.addWidget(scroll)
 
     def create_card(self, title_text):
+        # Shared card container for metric summaries, plots, and connection tables.
         card = QFrame()
         card.setObjectName("memory_panel")
         card_layout = QVBoxLayout(card)
@@ -109,6 +124,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         card_title.setObjectName("section_title")
         card_layout.addWidget(card_title)
 
+        # Divider separates the title from the actual content of each card.
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
         sep.setStyleSheet("background-color: #222222; max-height: 1px;")
@@ -117,6 +133,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         return card, card_layout
 
     def create_metrics_row(self):
+        # Four summary cards show the current rates for network and disk activity.
         row = QHBoxLayout()
         row.setSpacing(15)
 
@@ -151,6 +168,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         return row
 
     def create_network_graph_card(self):
+        # Build the bandwidth plot to visualize upload and download throughput over time.
         card, layout = self.create_card("NETWORK BANDWIDTH SPEED (UPLOAD vs DOWNLOAD - KB/s)")
 
         self.net_graph = pg.PlotWidget()
@@ -165,6 +183,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         return card
 
     def create_disk_graph_card(self):
+        # Build the disk I/O chart to visualize recent read/write throughput trends.
         card, layout = self.create_card("DISK I/O THROUGHPUT (READ vs WRITE - MB/s)")
 
         self.disk_graph = pg.PlotWidget()
@@ -179,6 +198,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         return card
 
     def create_sockets_card(self):
+        # Show the most recent active network sockets and their process ownership.
         card, layout = self.create_card("ACTIVE NETWORK SOCKETS & CONNECTIONS")
 
         self.sock_table = QTableWidget()
@@ -210,19 +230,21 @@ class NetworkDiskPage(CarbonFiberBackground):
         return card
 
     def format_speed(self, bytes_per_sec):
+        # Convert bytes/sec into a readable display unit for the summary labels.
         kb = bytes_per_sec / 1024.0
         if kb >= 1024:
             return f"{kb / 1024.0:.2f} MB/s"
         return f"{kb:.2f} KB/s"
 
     def update_telemetry(self):
+        # Measure deltas between the last and current system counters to calculate throughput rates.
         now = time.time()
         dt = now - self.last_time
         if dt <= 0:
             return
         self.last_time = now
 
-        # Network IO
+        # Network IO: compute bytes-per-second for upload and download traffic.
         curr_net = psutil.net_io_counters()
         bytes_sent_sec = (curr_net.bytes_sent - self.last_net.bytes_sent) / dt
         bytes_recv_sec = (curr_net.bytes_recv - self.last_net.bytes_recv) / dt
@@ -234,7 +256,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         self.upload_val.setText(self.format_speed(bytes_sent_sec))
         self.download_val.setText(self.format_speed(bytes_recv_sec))
 
-        # Disk IO
+        # Disk IO: compute read/write throughput from raw byte counters over the elapsed time.
         curr_disk = psutil.disk_io_counters()
         read_mb_sec = 0.0
         write_mb_sec = 0.0
@@ -246,7 +268,7 @@ class NetworkDiskPage(CarbonFiberBackground):
         self.disk_read_val.setText(f"{max(0.0, read_mb_sec):.2f} MB/s")
         self.disk_write_val.setText(f"{max(0.0, write_mb_sec):.2f} MB/s")
 
-        # History Plot Data
+        # Store recent points in history so the live charts can display a short rolling window.
         self.up_history.append(max(0.0, up_kbs))
         self.down_history.append(max(0.0, down_kbs))
         self.read_history.append(max(0.0, read_mb_sec))
@@ -263,10 +285,11 @@ class NetworkDiskPage(CarbonFiberBackground):
         self.read_curve.setData(self.read_history)
         self.write_curve.setData(self.write_history)
 
-        # Update Connections Sockets Table
+        # Refresh the socket table after the throughput values are updated.
         self.refresh_sockets()
 
     def refresh_sockets(self):
+        # Pull the current TCP/UDP connection list and present a short, readable summary.
         try:
             conns = psutil.net_connections(kind="inet")
         except Exception:

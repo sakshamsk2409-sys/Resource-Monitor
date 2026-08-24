@@ -1,3 +1,10 @@
+"""System configuration dashboard page.
+
+This module builds the hardware and operating-system information screen used by the
+Resource Monitor application. It gathers live system telemetry from the local machine
+and renders it in a set of Qt cards for display.
+"""
+
 import datetime
 import os
 import platform
@@ -22,6 +29,7 @@ from dashboard import CarbonFiberBackground
 class SystemConfigPage(CarbonFiberBackground):
 
     def __init__(self, parent=None):
+        # Build the page and wire up live refresh updates for metrics that change over time.
         super().__init__(parent)
         self.setup_ui()
 
@@ -32,6 +40,7 @@ class SystemConfigPage(CarbonFiberBackground):
         self.timer.start()
 
     def setup_ui(self):
+        # Main vertical stack holds the page title, scrollable content, and footer spacing.
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(35, 30, 35, 30)
         main_layout.setSpacing(20)
@@ -50,17 +59,18 @@ class SystemConfigPage(CarbonFiberBackground):
         header_layout.addWidget(subtitle)
         main_layout.addLayout(header_layout)
 
-        # Scroll Area for Content
+        # Scrollable container lets the page grow past the viewport without clipping content.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
+        # The content column holds the hardware summary cards and their relative layout.
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(0, 10, 10, 10)
         content_layout.setSpacing(20)
 
-        # Row 1: OS Info & Processor Specs
+        # Row 1: OS info and processor details share the same top band.
         row1 = QHBoxLayout()
         row1.setSpacing(20)
 
@@ -68,7 +78,7 @@ class SystemConfigPage(CarbonFiberBackground):
         row1.addWidget(self.create_cpu_card())
         content_layout.addLayout(row1)
 
-        # Row 2: Memory & System Uptime Cards
+        # Row 2: Memory statistics and uptime information are displayed side by side.
         row2 = QHBoxLayout()
         row2.setSpacing(20)
 
@@ -76,10 +86,8 @@ class SystemConfigPage(CarbonFiberBackground):
         row2.addWidget(self.create_uptime_card())
         content_layout.addLayout(row2)
 
-        # Row 3: Storage Partitions
+        # The remaining cards stack vertically to show storage and network telemetry.
         content_layout.addWidget(self.create_storage_card())
-
-        # Row 4: Network Adapters
         content_layout.addWidget(self.create_network_card())
 
         content_layout.addStretch()
@@ -87,6 +95,7 @@ class SystemConfigPage(CarbonFiberBackground):
         main_layout.addWidget(scroll)
 
     def create_card(self, title_text):
+        # Shared styling for all telemetry cards: a panel frame with a title and divider.
         card = QFrame()
         card.setObjectName("memory_panel")
         card_layout = QVBoxLayout(card)
@@ -97,7 +106,7 @@ class SystemConfigPage(CarbonFiberBackground):
         card_title.setObjectName("section_title")
         card_layout.addWidget(card_title)
 
-        # Separator line
+        # Separator line between the card heading and the data rows below it.
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
         sep.setStyleSheet("background-color: #222222; max-height: 1px;")
@@ -106,6 +115,7 @@ class SystemConfigPage(CarbonFiberBackground):
         return card, card_layout
 
     def add_info_row(self, layout, label_text, value_text):
+        # Create one label/value pair in a single horizontal row for easier scanning.
         row = QHBoxLayout()
         lbl = QLabel(label_text)
         lbl.setStyleSheet("color: #888888; font-size: 11px; font-weight: bold;")
@@ -120,6 +130,7 @@ class SystemConfigPage(CarbonFiberBackground):
         layout.addLayout(row)
 
     def create_os_card(self):
+        # Collect basic OS and host information for the environment card.
         card, layout = self.create_card("OPERATING SYSTEM & ENVIRONMENT")
 
         os_name = platform.system()
@@ -145,6 +156,7 @@ class SystemConfigPage(CarbonFiberBackground):
         return card
 
     def create_cpu_card(self):
+        # Report the current CPU model and threading characteristics from the host system.
         card, layout = self.create_card("PROCESSOR & HARDWARE ARCHITECTURE")
 
         cpu_brand = platform.processor() or "x86/x64 Family Processor"
@@ -169,6 +181,7 @@ class SystemConfigPage(CarbonFiberBackground):
         return card
 
     def create_memory_card(self):
+        # Show total RAM and swap capacity, while keeping a live available-memory value.
         card, layout = self.create_card("SYSTEM MEMORY SUMMARY")
 
         vm = psutil.virtual_memory()
@@ -197,6 +210,7 @@ class SystemConfigPage(CarbonFiberBackground):
         return card
 
     def create_uptime_card(self):
+        # Surface boot time and active uptime so the system's running session is easy to track.
         card, layout = self.create_card("SYSTEM BOOT & UPTIME")
 
         boot_timestamp = psutil.boot_time()
@@ -221,12 +235,13 @@ class SystemConfigPage(CarbonFiberBackground):
         return card
 
     def create_storage_card(self):
+        # Build a per-partition disk table with usage percentages and free-space calculations.
         card, layout = self.create_card("STORAGE DRIVES & PARTITIONS")
 
         grid = QGridLayout()
         grid.setSpacing(10)
 
-        # Header
+        # Header row for the storage breakdown table.
         headers = ["Drive / Mount", "File System", "Total Size", "Used Space", "Free Space", "Usage"]
         for col, h in enumerate(headers):
             lbl = QLabel(h)
@@ -274,6 +289,7 @@ class SystemConfigPage(CarbonFiberBackground):
         return card
 
     def create_network_card(self):
+        # Show all discovered network interfaces and their basic address information.
         card, layout = self.create_card("NETWORK INTERFACES & ADAPTERS")
 
         grid = QGridLayout()
@@ -327,6 +343,7 @@ class SystemConfigPage(CarbonFiberBackground):
         return card
 
     def refresh_memory_info(self):
+        # Recalculate available RAM each timer tick to keep the dashboard current.
         try:
             vm = psutil.virtual_memory()
             avail_gb = vm.available / (1024**3)
@@ -335,6 +352,7 @@ class SystemConfigPage(CarbonFiberBackground):
             pass
 
     def refresh_uptime(self):
+        # Convert the boot time delta into a readable uptime string for the UI.
         try:
             uptime_seconds = datetime.datetime.now().timestamp() - psutil.boot_time()
             hours, remainder = divmod(int(uptime_seconds), 3600)
@@ -345,5 +363,6 @@ class SystemConfigPage(CarbonFiberBackground):
             pass
 
     def refresh_dynamic_info(self):
+        # Refresh values that change in real time without rebuilding the whole page.
         self.refresh_memory_info()
         self.refresh_uptime()
