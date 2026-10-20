@@ -271,7 +271,7 @@ class MainWindow(QMainWindow):
         self.speed_combo.addItem("Ultra Fast (250ms)", 250)
         self.speed_combo.addItem("Normal Speed (1000ms)", 1000)
         self.speed_combo.addItem("Eco Saver (2000ms)", 2000)
-        self.speed_combo.setCurrentIndex(3)
+        self.speed_combo.setCurrentIndex(0)
         self.speed_combo.setStyleSheet("""
             QComboBox {
                 background-color: #0d0d0d;

@@ -9,13 +9,13 @@
 
 ## 1. Introduction
 
-The **System Resource Monitor** is a PySide6 desktop application that provides a centralized interface for monitoring system performance and resource utilization. It combines CPU, RAM, Disk, Network, and GPU metrics into a single cyber-styled interface with real-time visualization, process management, benchmarking, and report export.
+The **System Resource Monitor** is a PySide6 desktop application that provides a centralized interface for monitoring system performance and resource utilization. It combines CPU, RAM, Disk, Network, and GPU metrics into a single cyber-styled interface with real-time visualization, benchmarking, and report export.
 
 ---
 
 ## 2. Problem Statement
 
-Users often need to monitor multiple system resources while running intensive workloads, but existing tools scatter information across different utilities. This project provides a single desktop application for real-time monitoring, visualization, process management, system information, and benchmarking.
+Users often need to monitor multiple system resources while running intensive workloads, but existing tools scatter information across different utilities. This project provides a single desktop application for real-time monitoring, visualization, system information, and benchmarking.
 
 ---
 
@@ -24,7 +24,7 @@ Users often need to monitor multiple system resources while running intensive wo
 1. Real-time system monitoring desktop application
 2. Monitor CPU, RAM, Disk, and Network utilization
 3. Provide NVIDIA GPU telemetry when available
-4. Display running processes and resource consumption
+4. Display resource consumption in memory analytics
 5. Provide detailed system configuration information
 6. CPU benchmarking (single-core, multi-core, memory throughput)
 7. Export telemetry as HTML/JSON reports
@@ -35,7 +35,7 @@ Users often need to monitor multiple system resources while running intensive wo
 
 ## 4. Scope
 
-**Included:** CPU, RAM, Disk, Network, NVIDIA GPU, process monitoring, hardware info, benchmarking, real-time graphs, report generation, mini overlay.
+**Included:** CPU, RAM, Disk, Network, NVIDIA GPU, hardware info, benchmarking, real-time graphs, report generation, mini overlay.
 
 **Excluded:** Hardware modification, overclocking, replacing OS task manager, long-term cloud monitoring.
 
@@ -75,7 +75,7 @@ The application follows a **modular architecture** with separate Python modules 
              ┌────────────────┼────────────────┐
              │                │                │
              ▼                ▼                ▼
-       Network/Disk     Process Manager   System Config
+       Network/Disk      System Config     Reports
              │                │                │
              └────────────────┼────────────────┘
                               │
@@ -102,20 +102,35 @@ NVIDIA GPU telemetry via `nvidia-ml-py` (utilization, temperature, VRAM, power, 
 ### 7.5 Network and Disk (`network_disk_page.py`)
 Real-time upload/download speeds, disk read/write throughput, PyQtGraph history graphs, and an active network sockets table with local/remote addresses, status, and PID.
 
-### 7.6 Process Manager (`process_manager.py`)
-Live process table with PID, Name, Status, CPU %, RAM MB, RAM %, and User columns. Supports search/filter, terminate, and force-kill with confirmation dialogs. Color-coded high-usage indicators (🔥 high CPU, 💾 high RAM). Background worker thread for efficient scanning.
-
-### 7.7 System Configuration (`system_config.py`)
+### 7.6 System Configuration (`system_config.py`)
 Static and dynamic system info: OS, processor, memory, uptime (refreshed every 2s), disk partitions with usage warnings (>85% red), and network interfaces with IPv4, MAC, and link status.
 
-### 7.8 Mini Overlay (`mini_overlay.py`)
+### 7.7 Mini Overlay (`mini_overlay.py`)
 Compact, always-on-top, frameless, draggable widget showing CPU, RAM, GPU Temperature, and Network throughput. Refresh interval syncs with the main window speed selector.
 
 ### 7.9 Benchmark (`benchmark_page.py`)
 CPU single-core and multi-core stress tests plus memory throughput benchmark using `concurrent.futures`. Real-time progress tracking and score calculation.
 
 ### 7.10 Report Exporter (`report_exporter.py`)
-Exports a full system telemetry snapshot to timestamped HTML and JSON files. HTML reports open automatically in the default browser.
+Exports full diagnostic system telemetry and comprehensive historical analytics to timestamped HTML and JSON reports with embedded base64 visualization figures.
+
+### 7.11 Historical Analytics Dashboard (`analytics_page.py`)
+Comprehensive historical data analysis tab featuring interactive PyQtGraph time-series with moving average smoothing, Matplotlib bivariate regressions, density distributions, Pearson correlation heatmaps, KPI summary cards, and dynamic interpretations.
+
+### 7.12 Continuous Telemetry Logger (`telemetry_logger.py`)
+GUI-integrated, non-blocking telemetry recorder supporting configurable sampling cadences (0.25s - 5.0s), 19-column documented schema, true counter-difference rate computations, and clean application shutdown.
+
+### 7.13 Data Preprocessing Pipeline (`data_preprocessing.py`)
+Reproducible Pandas & NumPy preparation pipeline handling timestamp validation, chronological sorting, exact duplicate and timestamp collision resolution, range masking, time-gap auditing, and derived metric calculations.
+
+### 7.14 Statistical & Interpretation Engine (`telemetry_statistics.py`)
+Computes mean, median, min, max, standard deviation, 25/75/95/99 percentiles, threshold breach streaks, and synthesizes data-driven narrative interpretations directly from computed results.
+
+### 7.15 AI Insights & Diagnostic Extensions (`ai_insights.py`)
+Offline rule-based system performance diagnosis by default, with optional opt-in external AI integration (Gemini, OpenAI, Ollama) enforcing data minimization and user consent.
+
+### 7.16 Process Manager (`process_manager.py`)
+Standalone background process inspection module utilizing `psutil` process iteration with sorting, filtering, and memory tracking.
 
 ---
 
@@ -164,7 +179,6 @@ Cyber-styled interface with a carbon-fiber textured background, sidebar navigati
 | GPU usage | Graph / gauge |
 | Network activity | Line graph + sockets table |
 | Disk activity | Line graph |
-| Processes | Table with indicators |
 | System information | Information panels |
 
 ---
@@ -177,7 +191,7 @@ Cyber-styled interface with a carbon-fiber textured background, sidebar navigati
 4. **PyQtGraph** — Efficient plotting for high-frequency real-time graph updates.
 5. **Optional NVIDIA Monitoring** — Graceful fallback ensures the app works without an NVIDIA GPU.
 6. **LibreHardwareMonitor Integration** — Optional local executable extends sensor coverage (CPU package temp, AMD/Intel GPU load) with fallback to psutil and Windows WMI.
-7. **Background Workers** — QThread workers for memory and process scanning prevent UI blocking.
+7. **Background Workers** — QThread workers for memory scanning prevent UI blocking.
 8. **Per-Gauge Refresh Presets** — Different metrics update at different rates; presets reduce unnecessary overhead.
 
 ---
@@ -191,7 +205,6 @@ Resource-Monitor/
 ├── memory.py
 ├── gpu_page.py
 ├── network_disk_page.py
-├── process_manager.py
 ├── system_config.py
 ├── mini_overlay.py
 ├── benchmark_page.py
@@ -241,7 +254,6 @@ python main.py
 - **CPU/RAM:** Verify values change under load; alerts update in sidebar.
 - **Disk/Network:** Perform file transfers and observe I/O graphs.
 - **GPU:** Run GPU-intensive tasks and verify NVIDIA telemetry or LHM dashboard values.
-- **Process Manager:** Search, terminate, and force-kill processes.
 - **Benchmark:** Run full suite and verify progress and scores.
 - **Report Exporter:** Verify HTML and JSON files are generated and HTML opens in browser.
 - **Overlay:** Verify always-on-top behavior, dragging, and metric updates.
@@ -254,8 +266,7 @@ python main.py
 2. AMD/Intel GPU details are limited to dashboard via LibreHardwareMonitor.
 3. Benchmark scores vary with background load.
 4. CPU temperature depends on available sensors.
-5. Process termination requires appropriate permissions.
-6. LibreHardwareMonitor is Windows-only.
+5. LibreHardwareMonitor is Windows-only.
 
 ---
 
@@ -274,7 +285,7 @@ python main.py
 
 ## 18. Conclusion
 
-The System Resource Monitor centralizes real-time system monitoring, visualization, process management, benchmarking, and reporting in a modular PySide6 application. It demonstrates practical use of PySide6, psutil, PyQtGraph, Matplotlib, nvidia-ml-py, and LibreHardwareMonitor.
+The System Resource Monitor centralizes real-time system monitoring, visualization, benchmarking, and reporting in a modular PySide6 application. It demonstrates practical use of PySide6, psutil, PyQtGraph, Matplotlib, nvidia-ml-py, and LibreHardwareMonitor.
 
 ---
 

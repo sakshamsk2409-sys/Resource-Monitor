@@ -20,7 +20,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from PySide6.QtCore import QCoreApplication, QTimer
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 
 from telemetry_logger import TelemetrySampler, TelemetryLogger, SCHEMA_COLUMNS, COLUMN_METADATA
 from data_preprocessing import TelemetryPreprocessor, PreprocessingValidationError
@@ -98,7 +99,7 @@ class TestTelemetryLoggerLifecycle(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.app = QCoreApplication.instance() or QCoreApplication([])
+        cls.app = QApplication.instance() or QApplication([])
 
     def setUp(self):
         self.test_dir = os.path.join("data", "test_scratch")
