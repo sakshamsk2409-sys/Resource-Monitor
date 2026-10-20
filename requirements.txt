@@ -15,6 +15,7 @@ pyqtgraph>=0.13,<1
 # Charts / static exports
 matplotlib>=3.9,<4
 numpy>=1.26,<3
+pandas>=2.2,<4
 
 # NVIDIA GPU telemetry (optional, required for NVIDIA GPU metrics)
 nvidia-ml-py>=12.0,<14

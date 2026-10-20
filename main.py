@@ -10,13 +10,19 @@ def _auto_install_dependencies():
         "pyqtgraph>=0.13,<1",
         "matplotlib>=3.9,<4",
         "numpy>=1.26,<3",
+        "pandas>=2.2,<4",
         "nvidia-ml-py>=12.0,<14",
     ]
+
+    module_map = {
+        "nvidia-ml-py": "pynvml",
+    }
 
     missing = []
     for dep in deps:
         pkg_name = dep.split(">=")[0].split("==")[0].split("<")[0]
-        if importlib.util.find_spec(pkg_name) is None:
+        mod_name = module_map.get(pkg_name, pkg_name)
+        if importlib.util.find_spec(mod_name) is None:
             missing.append(dep)
 
     if not missing:
@@ -60,11 +66,12 @@ from dashboard import DashboardPage
 from memory import MemoryPage
 from system_config import SystemConfigPage
 from gpu_page import GPUPerformancePage
-from process_manager import ProcessManagerPage
 from network_disk_page import NetworkDiskPage
 from report_exporter import export_system_report
 from mini_overlay import MiniOverlayWidget
 from benchmark_page import BenchmarkPage
+from analytics_page import AnalyticsPage
+from telemetry_logger import TelemetryLogger
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QComboBox, QMessageBox, QFileDialog
 import psutil
@@ -188,12 +195,12 @@ class MainWindow(QMainWindow):
             "Network & Disk I/O"
         )
 
-        self.process_button = QPushButton(
-            "Process Manager"
-        )
-
         self.benchmark_button = QPushButton(
             "Benchmark & Stress Test"
+        )
+
+        self.analytics_button = QPushButton(
+            "Analytics & Telemetry"
         )
 
         buttons = [
@@ -202,8 +209,8 @@ class MainWindow(QMainWindow):
             self.system_button,
             self.gpu_button,
             self.net_disk_button,
-            self.process_button,
             self.benchmark_button,
+            self.analytics_button,
         ]
 
         for button in buttons:
@@ -284,6 +291,13 @@ class MainWindow(QMainWindow):
         self.speed_combo.currentIndexChanged.connect(self.on_speed_changed)
         sidebar_layout.addWidget(self.speed_combo)
 
+        sidebar_layout.addSpacing(12)
+
+        # =================================================
+        # TELEMETRY CSV RECORDER CONTROLS PANEL
+        # =================================================
+        self.setup_logging_panel(sidebar_layout)
+
         sidebar_layout.addStretch()
 
         # Alert & Monitoring Status
@@ -317,9 +331,9 @@ class MainWindow(QMainWindow):
 
         self.net_disk_page = NetworkDiskPage()
 
-        self.process_page = ProcessManagerPage()
-
         self.benchmark_page = BenchmarkPage()
+
+        self.analytics_page = AnalyticsPage()
 
         # =================================================
         # ADD PAGES
@@ -346,12 +360,23 @@ class MainWindow(QMainWindow):
         )
 
         self.pages.addWidget(
-            self.process_page
+            self.benchmark_page
         )
 
         self.pages.addWidget(
-            self.benchmark_page
+            self.analytics_page
         )
+
+        # =================================================
+        # TELEMETRY LOGGER INITIALIZATION
+        # =================================================
+        self.logger = TelemetryLogger(
+            temperature_provider=self.dashboard_page.get_cpu_temperature,
+            parent=self
+        )
+        self.logger.status_changed.connect(self.on_logger_status_changed)
+        self.logger.stats_updated.connect(self.on_logger_stats_updated)
+        self.logger.error_occurred.connect(self.on_logger_error)
 
         # =================================================
         # NAVIGATION CONNECTIONS
@@ -377,14 +402,13 @@ class MainWindow(QMainWindow):
             lambda: self.change_page(4)
         )
 
-        self.process_button.clicked.connect(
+        self.benchmark_button.clicked.connect(
             lambda: self.change_page(5)
         )
 
-        self.benchmark_button.clicked.connect(
+        self.analytics_button.clicked.connect(
             lambda: self.change_page(6)
         )
-
 
         main_layout.addWidget(
             sidebar
@@ -440,8 +464,8 @@ class MainWindow(QMainWindow):
             self.system_button,
             self.gpu_button,
             self.net_disk_button,
-            self.process_button,
             self.benchmark_button,
+            self.analytics_button,
         ]
 
         # -------------------------------------------------
@@ -530,6 +554,251 @@ class MainWindow(QMainWindow):
                 self.status.setStyleSheet("color: #55d66f; font-weight: bold; font-size: 10px;")
         except Exception:
             pass
+
+    # =================================================
+    # TELEMETRY LOGGING CONTROLS & HANDLERS
+    # =================================================
+
+    def setup_logging_panel(self, sidebar_layout):
+        import os
+        panel = QFrame()
+        panel.setObjectName("recorder_card")
+        panel.setStyleSheet("""
+            #recorder_card {
+                background-color: #0b0b0b;
+                border: 1px solid #282828;
+                border-radius: 4px;
+                padding: 10px;
+            }
+        """)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+
+        # Title & Status badge row
+        top_row = QHBoxLayout()
+        header_lbl = QLabel("TELEMETRY RECORDER")
+        header_lbl.setStyleSheet("color: #777777; font-size: 9px; font-weight: bold; letter-spacing: 0.8px;")
+        top_row.addWidget(header_lbl)
+
+        self.log_status_badge = QLabel("● IDLE")
+        self.log_status_badge.setStyleSheet("color: #888888; font-size: 9px; font-weight: bold;")
+        top_row.addWidget(self.log_status_badge)
+        layout.addLayout(top_row)
+
+        # Interval combo
+        int_row = QHBoxLayout()
+        int_lbl = QLabel("INTERVAL:")
+        int_lbl.setStyleSheet("color: #666666; font-size: 9px; font-weight: bold;")
+        int_row.addWidget(int_lbl)
+
+        self.log_interval_combo = QComboBox()
+        self.log_interval_combo.addItem("1.0s (Default)", 1.0)
+        self.log_interval_combo.addItem("0.5s (2 Hz)", 0.5)
+        self.log_interval_combo.addItem("0.25s (4 Hz)", 0.25)
+        self.log_interval_combo.addItem("2.0s (Eco)", 2.0)
+        self.log_interval_combo.addItem("5.0s (Slow)", 5.0)
+        self.log_interval_combo.setCurrentIndex(0)
+        self.log_interval_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #121212;
+                color: #cccccc;
+                border: 1px solid #333333;
+                border-radius: 3px;
+                padding: 3px 6px;
+                font-size: 10px;
+            }
+        """)
+        self.log_interval_combo.currentIndexChanged.connect(self.on_logging_interval_changed)
+        int_row.addWidget(self.log_interval_combo)
+        layout.addLayout(int_row)
+
+        # Buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+
+        self.log_start_btn = QPushButton("Start Logging")
+        self.log_start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #153315;
+                color: #55d66f;
+                border: 1px solid #2d662d;
+                border-radius: 3px;
+                padding: 6px;
+                font-size: 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1e4a1e;
+            }
+        """)
+        self.log_start_btn.clicked.connect(self.toggle_logging)
+        btn_row.addWidget(self.log_start_btn)
+
+        self.log_pause_btn = QPushButton("Pause")
+        self.log_pause_btn.setEnabled(False)
+        self.log_pause_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #222211;
+                color: #ffaa00;
+                border: 1px solid #444422;
+                border-radius: 3px;
+                padding: 6px;
+                font-size: 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #33331a;
+            }
+            QPushButton:disabled {
+                background-color: #111111;
+                color: #444444;
+                border: 1px solid #222222;
+            }
+        """)
+        self.log_pause_btn.clicked.connect(self.toggle_pause_resume)
+        btn_row.addWidget(self.log_pause_btn)
+        layout.addLayout(btn_row)
+
+        # Stats
+        stats_row = QHBoxLayout()
+        self.log_recs_lbl = QLabel("Records: 0")
+        self.log_recs_lbl.setStyleSheet("color: #aaaaaa; font-size: 9px;")
+        self.log_time_lbl = QLabel("Time: 00:00:00")
+        self.log_time_lbl.setStyleSheet("color: #aaaaaa; font-size: 9px;")
+        stats_row.addWidget(self.log_recs_lbl)
+        stats_row.addStretch()
+        stats_row.addWidget(self.log_time_lbl)
+        layout.addLayout(stats_row)
+
+        # File path
+        self.log_file_lbl = QLabel("File: [No Log Active]")
+        self.log_file_lbl.setStyleSheet("color: #555555; font-size: 8px;")
+        self.log_file_lbl.setToolTip("Target CSV destination (data/logs/)")
+        layout.addWidget(self.log_file_lbl)
+
+        sidebar_layout.addWidget(panel)
+
+    def toggle_logging(self):
+        import os
+        if not hasattr(self, "logger") or self.logger is None:
+            return
+
+        if self.logger.is_recording or self.logger.is_paused:
+            path = self.logger.file_path
+            count = self.logger.record_count
+            self.logger.stop_logging()
+
+            reply = QMessageBox.question(
+                self,
+                "Logging Complete",
+                f"Telemetry recording saved successfully!\n\n"
+                f"File: {path}\nSamples: {count:,}\n\n"
+                f"Would you like to analyze this recording in the Analytics tab now?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply == QMessageBox.Yes:
+                self.change_page(6)
+                if hasattr(self, "analytics_page"):
+                    self.analytics_page.load_dataset(path)
+        else:
+            interval = self.log_interval_combo.currentData() or 1.0
+            out_file = self.logger.start_logging(interval_sec=interval)
+            if out_file:
+                fname = os.path.basename(out_file)
+                self.log_file_lbl.setText(f"File: {fname}")
+                self.log_file_lbl.setToolTip(out_file)
+
+    def toggle_pause_resume(self):
+        if not hasattr(self, "logger") or self.logger is None:
+            return
+        if self.logger.is_recording:
+            self.logger.pause_logging()
+        elif self.logger.is_paused:
+            self.logger.resume_logging()
+
+    def on_logging_interval_changed(self, index):
+        sec = self.log_interval_combo.itemData(index)
+        if sec and hasattr(self, "logger") and self.logger is not None:
+            self.logger.set_sampling_interval(sec)
+
+    def on_logger_status_changed(self, status):
+        if status == TelemetryLogger.STATUS_RECORDING:
+            self.log_status_badge.setText("● REC")
+            self.log_status_badge.setStyleSheet("color: #e53935; font-size: 9px; font-weight: bold;")
+            self.log_start_btn.setText("Stop Logging")
+            self.log_start_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #331515;
+                    color: #ef5350;
+                    border: 1px solid #662d2d;
+                    border-radius: 3px;
+                    padding: 6px;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #4a1e1e; }
+            """)
+            self.log_pause_btn.setEnabled(True)
+            self.log_pause_btn.setText("Pause")
+        elif status == TelemetryLogger.STATUS_PAUSED:
+            self.log_status_badge.setText("⏸ PAUSED")
+            self.log_status_badge.setStyleSheet("color: #ffaa00; font-size: 9px; font-weight: bold;")
+            self.log_start_btn.setText("Stop Logging")
+            self.log_pause_btn.setEnabled(True)
+            self.log_pause_btn.setText("Resume")
+        else:
+            self.log_status_badge.setText("● IDLE")
+            self.log_status_badge.setStyleSheet("color: #888888; font-size: 9px; font-weight: bold;")
+            self.log_start_btn.setText("Start Logging")
+            self.log_start_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #153315;
+                    color: #55d66f;
+                    border: 1px solid #2d662d;
+                    border-radius: 3px;
+                    padding: 6px;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #1e4a1e; }
+            """)
+            self.log_pause_btn.setEnabled(False)
+            self.log_pause_btn.setText("Pause")
+
+    def on_logger_stats_updated(self, count, elapsed, path):
+        import os
+        hrs = int(elapsed) // 3600
+        mins = (int(elapsed) % 3600) // 60
+        secs = int(elapsed) % 60
+        self.log_time_lbl.setText(f"Time: {hrs:02d}:{mins:02d}:{secs:02d}")
+        self.log_recs_lbl.setText(f"Records: {count:,}")
+        if path:
+            self.log_file_lbl.setText(f"File: {os.path.basename(path)}")
+            self.log_file_lbl.setToolTip(path)
+
+    def on_logger_error(self, err_msg):
+        QMessageBox.warning(self, "Telemetry Logger Error", err_msg)
+
+    def closeEvent(self, event):
+        """Clean shutdown: flush CSV telemetry, stop timers, terminate background monitors."""
+        if hasattr(self, "logger") and self.logger is not None:
+            if self.logger.is_recording or self.logger.is_paused:
+                self.logger.stop_logging()
+
+        if hasattr(self, "alert_timer") and self.alert_timer.isActive():
+            self.alert_timer.stop()
+
+        for i in range(self.pages.count()):
+            page_widget = self.pages.widget(i)
+            if hasattr(page_widget, "closeEvent"):
+                try:
+                    page_widget.close()
+                except Exception:
+                    pass
+
+        event.accept()
 
     def create_placeholder(self, title):
         page = QWidget()
