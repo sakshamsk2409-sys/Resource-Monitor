@@ -130,6 +130,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venvRM
 env/
 venv/
 ENV/
@@ -179,3 +180,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Local hardware-monitoring service (installed per machine)
+.tools/
+*.json
+
+# Telemetry logs and generated reports (keep sample academic log tracked)
+data/logs/resource_log_*.csv
+data/reports/
+!data/logs/sample_academic_telemetry.csv
