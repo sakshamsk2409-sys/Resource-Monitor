@@ -11,6 +11,8 @@ from urllib.request import urlopen  # for opening and reading URLs
 import  psutil      
 import pyqtgraph as pg
 
+from hardware_monitor import get_hardware_monitor
+
 try:
     import pynvml
     HAS_PYNVML = True
@@ -801,7 +803,8 @@ class DashboardPage(CarbonFiberBackground):
 
         super().__init__()
 
-        self.lhm_process = None
+        self.hardware_monitor = get_hardware_monitor()
+        self.lhm_process = getattr(self.hardware_monitor, "lhm_process", None)
         self.start_libre_hardware_monitor()
 
 
@@ -899,6 +902,11 @@ class DashboardPage(CarbonFiberBackground):
     def start_libre_hardware_monitor(self):
 
         """Start the bundled LibreHardwareMonitor web server when needed."""
+
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            self.hardware_monitor.start_lhm()
+            self.lhm_process = getattr(self.hardware_monitor, "lhm_process", None)
+            return
 
         if not sys.platform.startswith("win"):
             return
@@ -1380,7 +1388,7 @@ class DashboardPage(CarbonFiberBackground):
 
     def refresh_gauge_value(self, gauge_name):
         if gauge_name == "cpu_load":
-            self.cpu_gauge.setValue(psutil.cpu_percent(interval=None))
+            self.cpu_gauge.setValue(self.get_cpu_load())
         elif gauge_name == "cpu_temp":
             self.cpu_temp_gauge.setValue(self.get_cpu_temperature())
         elif gauge_name == "gpu_0":
@@ -1537,9 +1545,24 @@ class DashboardPage(CarbonFiberBackground):
 
         dialog.exec()
 
+    def get_cpu_load(self):
+
+        """Return the live CPU load percentage from LibreHardwareMonitor or psutil."""
+
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            return self.hardware_monitor.get_cpu_load()
+
+        try:
+            return round(float(psutil.cpu_percent(interval=None)), 1)
+        except Exception:
+            return 0.0
+
     def get_cpu_temperature(self):
 
         """Return the live CPU package temperature from available sensors."""
+
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            return self.hardware_monitor.get_cpu_temperature()
 
         hardware_temperature = self.get_lhm_cpu_temperature()
         if hardware_temperature is not None:
@@ -1547,9 +1570,30 @@ class DashboardPage(CarbonFiberBackground):
 
         return self.get_psutil_cpu_temperature()
 
+    def get_lhm_cpu_load(self):
+
+        """Read the live CPU load from LibreHardwareMonitor."""
+
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            load, _ = self.hardware_monitor.get_lhm_web_cpu()
+            if load is not None:
+                return load
+            clr_load, _ = self.hardware_monitor.get_clr_cpu()
+            if clr_load is not None:
+                return clr_load
+        return None
+
     def get_lhm_cpu_temperature(self):
 
         """Read the local LibreHardwareMonitor web feed when it is running."""
+
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            _, temp = self.hardware_monitor.get_lhm_web_cpu()
+            if temp is not None:
+                return temp
+            _, clr_temp = self.hardware_monitor.get_clr_cpu()
+            if clr_temp is not None:
+                return clr_temp
 
         try:
             with urlopen(
@@ -1566,8 +1610,10 @@ class DashboardPage(CarbonFiberBackground):
 
             hardware_id = node.get("HardwareId", "").lower()
             node_text = node.get("Text", "").lower()
-            if "cpu" in hardware_id or "cpu" in node_text:
-                return node
+            img_url = node.get("ImageURL", "").lower()
+            if "cpu" in img_url or "cpu" in hardware_id or "cpu" in node_text or any(k in node_text for k in ("intel", "amd", "ryzen", "core")):
+                if not any(g in node_text for g in ("nvidia", "radeon", "geforce", "gpu", "graphics")):
+                    return node
 
             for child in node.get("Children", []):
                 cpu_node = find_cpu_node(child)
@@ -1618,6 +1664,9 @@ class DashboardPage(CarbonFiberBackground):
     def get_lhm_gpu_usage(self):
 
         """Return live GPU core loads from LibreHardwareMonitor."""
+
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            return self.hardware_monitor.get_gpu_usage()
 
         try:
             with urlopen(
@@ -1811,7 +1860,7 @@ class DashboardPage(CarbonFiberBackground):
 
     def update_data(self):
 
-        cpu = psutil.cpu_percent(interval=None)
+        cpu = self.get_cpu_load()
         ram = psutil.virtual_memory().percent
         cpu_temperature = self.get_cpu_temperature()
         gpu_adapter_usage = self.get_lhm_gpu_usage()
@@ -1864,7 +1913,9 @@ class DashboardPage(CarbonFiberBackground):
                 t.stop()
             except Exception:
                 pass
-        if hasattr(self, "lhm_process") and self.lhm_process is not None and self.lhm_process.poll() is None:
+        if hasattr(self, "hardware_monitor") and self.hardware_monitor:
+            self.hardware_monitor.close()
+        elif hasattr(self, "lhm_process") and self.lhm_process is not None and self.lhm_process.poll() is None:
             try:
                 self.lhm_process.terminate()
             except Exception:
