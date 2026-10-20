@@ -1857,11 +1857,16 @@ class DashboardPage(CarbonFiberBackground):
         self.gpu_bottom.setData([0] * len(self.gpu_history))
         self.gpu_1_bottom.setData([0] * len(self.gpu_1_history))
         self.ram_bottom.setData([0] * len(self.ram_history))
-    def closeEvent(
-        self,
-        event
-    ):
-
+    def closeEvent(self, event):
         self.timer.stop()
-
+        for t in self.gauge_timers.values():
+            try:
+                t.stop()
+            except Exception:
+                pass
+        if hasattr(self, "lhm_process") and self.lhm_process is not None and self.lhm_process.poll() is None:
+            try:
+                self.lhm_process.terminate()
+            except Exception:
+                pass
         event.accept()
