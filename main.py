@@ -71,6 +71,7 @@ from report_exporter import export_system_report
 from mini_overlay import MiniOverlayWidget
 from benchmark_page import BenchmarkPage
 from analytics_page import AnalyticsPage
+from chatbot_page import ChatbotPage
 from telemetry_logger import TelemetryLogger
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QComboBox, QMessageBox, QFileDialog
@@ -203,6 +204,10 @@ class MainWindow(QMainWindow):
             "Analytics & Telemetry"
         )
 
+        self.chatbot_button = QPushButton(
+            "Monitor Assistant"
+        )
+
         buttons = [
             self.dashboard_button,
             self.memory_button,
@@ -211,6 +216,7 @@ class MainWindow(QMainWindow):
             self.net_disk_button,
             self.benchmark_button,
             self.analytics_button,
+            self.chatbot_button,
         ]
 
         for button in buttons:
@@ -335,6 +341,8 @@ class MainWindow(QMainWindow):
 
         self.analytics_page = AnalyticsPage()
 
+        self.chatbot_page = ChatbotPage()
+
         # =================================================
         # ADD PAGES
         # =================================================
@@ -365,6 +373,10 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(
             self.analytics_page
+        )
+
+        self.pages.addWidget(
+            self.chatbot_page
         )
 
         # =================================================
@@ -408,6 +420,10 @@ class MainWindow(QMainWindow):
 
         self.analytics_button.clicked.connect(
             lambda: self.change_page(6)
+        )
+
+        self.chatbot_button.clicked.connect(
+            lambda: self.change_page(7)
         )
 
         main_layout.addWidget(
@@ -466,6 +482,7 @@ class MainWindow(QMainWindow):
             self.net_disk_button,
             self.benchmark_button,
             self.analytics_button,
+            self.chatbot_button,
         ]
 
         # -------------------------------------------------

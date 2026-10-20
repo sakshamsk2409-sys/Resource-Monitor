@@ -55,12 +55,12 @@ class AIInsightsManager:
             mean_temp = temp_stat.get("mean", 0)
             if max_temp >= 85.0:
                 insights.append(
-                    f"**Elevated Thermal Boundary**: CPU temperature peaked at {max_temp} °C (mean {mean_temp} °C). "
+                    f"**Elevated Thermal Boundary**: CPU temperature peaked at {max_temp} Â°C (mean {mean_temp} Â°C). "
                     f"Approaching vendor junction limits (TjMax) may induce thermal throttling."
                 )
-                recommendations.append("Inspect chassis airflow, dust accumulation, or thermal paste contact if temperatures sustain above 85°C.")
+                recommendations.append("Inspect chassis airflow, dust accumulation, or thermal paste contact if temperatures sustain above 85Â°C.")
             else:
-                insights.append(f"**Satisfactory Cooling Dynamics**: Peak CPU temperature remained bounded at {max_temp} °C.")
+                insights.append(f"**Satisfactory Cooling Dynamics**: Peak CPU temperature remained bounded at {max_temp} Â°C.")
 
         # 3. Memory Pressure
         ram_stat = stats.get("ram_usage_percent", {})
@@ -108,6 +108,7 @@ class AIInsightsManager:
         api_key: str = "",
         model_name: str = "gemini-1.5-flash",
         custom_endpoint: str = "",
+        user_question: str = "",
     ) -> Dict[str, Any]:
         """Optionally transmit sanitized, aggregated statistics to an external LLM for synthesis.
         
@@ -121,7 +122,7 @@ class AIInsightsManager:
             f"Hardware Telemetry Summary:\n"
             f"- CPU Usage: Mean {summary_payload.get('cpu_mean')}%, Max {summary_payload.get('cpu_max')}%, 95th {summary_payload.get('cpu_p95')}%\n"
             f"- RAM Usage: Mean {summary_payload.get('ram_mean')}%, Max {summary_payload.get('ram_max')}%\n"
-            f"- CPU Temp: Max {summary_payload.get('cpu_temp_max', 'N/A')} °C\n"
+            f"- CPU Temp: Max {summary_payload.get('cpu_temp_max', 'N/A')} Â°C\n"
             f"- Peak Disk Throughput: {summary_payload.get('disk_peak_mb', 'N/A')} MB/s\n"
             f"- Peak Network: {summary_payload.get('net_peak_kb', 'N/A')} KB/s\n"
             f"- Duration: {summary_payload.get('duration_sec', 'N/A')} seconds ({summary_payload.get('record_count', 0)} samples)"
@@ -133,7 +134,10 @@ class AIInsightsManager:
             "Return your response formatted in clean markdown bullet points. Do not make up hypothetical specs."
         )
 
-        user_content = f"{system_prompt}\n\n{sanitized_summary_text}"
+        user_content = (
+            f"{system_prompt}\n\n{sanitized_summary_text}\n\n"
+            f"User question: {user_question.strip() or 'Provide a concise system health overview.'}"
+        )
 
         try:
             if provider.lower() == "gemini":
@@ -170,7 +174,7 @@ class AIInsightsManager:
                     data=json.dumps(body).encode("utf-8"),
                     headers={
                         "Content-Type": "application/json",
-                        "Authorization": f"Bearer {api_key}",
+                        "Authorization": "Bearer " + api_key,
                     },
                     method="POST",
                 )

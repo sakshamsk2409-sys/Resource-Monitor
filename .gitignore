@@ -180,3 +180,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Local environments and generated application output
+.venv/
+venv/
+data/
+logs/
+hardware_log_*.csv
+system_report_*.html
+TEST/

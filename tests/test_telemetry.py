@@ -33,6 +33,7 @@ from telemetry_statistics import (
     generate_interpretations,
 )
 from ai_insights import AIInsightsManager
+from chatbot_page import build_local_response
 from report_exporter import export_analytics_report
 
 
@@ -319,6 +320,29 @@ class TestAIInsightsAndReportExport(unittest.TestCase):
             self.assertIn("cpu_usage_percent", content)
 
         shutil.rmtree(test_dir, ignore_errors=True)
+
+
+class TestMonitorAssistant(unittest.TestCase):
+    """Verify the offline assistant stays deterministic and network-independent."""
+
+    def setUp(self):
+        self.metrics = {
+            "cpu": 92.0,
+            "memory": 88.0,
+            "memory_available_gb": 1.5,
+            "disk": 72.0,
+            "network_sent_mb": 12.0,
+            "network_received_mb": 48.0,
+        }
+
+    def test_cpu_response_contains_live_metric_and_guidance(self):
+        response = build_local_response("How is my CPU?", self.metrics)
+        self.assertIn("92.0%", response)
+        self.assertIn("Close intensive applications", response)
+
+    def test_help_and_unknown_questions_are_actionable(self):
+        self.assertIn("CPU", build_local_response("help", self.metrics))
+        self.assertIn("system status", build_local_response("something else", self.metrics))
 
 
 if __name__ == "__main__":
