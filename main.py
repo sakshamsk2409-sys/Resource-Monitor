@@ -1,6 +1,9 @@
 import sys
 import subprocess
 import importlib.util
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def _auto_install_dependencies():
