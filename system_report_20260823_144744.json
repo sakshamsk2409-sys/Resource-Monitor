@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-08-23 14:47:45",
+  "hostname": "DELL",
+  "os": "Windows 11 (AMD64)",
+  "cpu_model": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+  "cores_physical": 8,
+  "cores_logical": 16,
+  "cpu_usage_pct": 17.7,
+  "ram": {
+    "total_gb": 15.73,
+    "used_gb": 12.47,
+    "available_gb": 3.26,
+    "percent": 79.3
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce MX450",
+    "vram": "0.14 GB / 2.00 GB"
+  },
+  "drives": [
+    {
+      "mount": "C:\\",
+      "fstype": "NTFS",
+      "total_gb": 459.9,
+      "used_gb": 219.9,
+      "free_gb": 240.0,
+      "percent": 47.8
+    }
+  ],
+  "top_processes": [
+    {
+      "pid": 20132,
+      "name": "kilo.exe",
+      "cpu": 0.0,
+      "mem_mb": 839.3
+    },
+    {
+      "pid": 12652,
+      "name": "Discord.exe",
+      "cpu": 0.0,
+      "mem_mb": 704.9
+    },
+    {
+      "pid": 16480,
+      "name": "Code.exe",
+      "cpu": 0.0,
+      "mem_mb": 686.4
+    },
+    {
+      "pid": 12004,
+      "name": "Code.exe",
+      "cpu": 0.0,
+      "mem_mb": 397.4
+    },
+    {
+      "pid": 7668,
+      "name": "Discord.exe",
+      "cpu": 0.0,
+      "mem_mb": 345.2
+    },
+    {
+      "pid": 25180,
+      "name": "OneDrive.exe",
+      "cpu": 0.0,
+      "mem_mb": 335.7
+    },
+    {
+      "pid": 3196,
+      "name": "MemCompression",
+      "cpu": 0.0,
+      "mem_mb": 276.6
+    },
+    {
+      "pid": 18288,
+      "name": "chrome.exe",
+      "cpu": 0.0,
+      "mem_mb": 271.9
+    },
+    {
+      "pid": 27144,
+      "name": "Code.exe",
+      "cpu": 0.0,
+      "mem_mb": 265.4
+    },
+    {
+      "pid": 26940,
+      "name": "explorer.exe",
+      "cpu": 0.0,
+      "mem_mb": 252.1
+    }
+  ]
+}

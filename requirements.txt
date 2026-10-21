@@ -20,21 +20,15 @@ pandas>=2.2,<4
 # NVIDIA GPU telemetry (optional, required for NVIDIA GPU metrics)
 nvidia-ml-py>=12.0,<14
 
-# Optional Windows sensor support for CPU temperature detection
+# Windows sensor support for CPU load and temperature detection via LibreHardwareMonitor
+pythonnet>=3.0; sys_platform == 'win32'
 
-# This project also supports reading CPU package temperature from a
-# bundled LibreHardwareMonitor executable when available.
-# Manual setup (Windows):
-#   1. Download LibreHardwareMonitor from:
-    # https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
-#   2. Extract the files and place the executable at:
- #     .tools/LibreHardwareMonitor/LibreHardwareMonitor.exe
-#   3. Start the app; it will use that local sensor service automatically.
+# This project bundles LibreHardwareMonitor for CPU and hardware telemetry:
+#   1. Automatic detection via LibreHardwareMonitorLib.dll (in-process via pythonnet)
+#   2. Local web server feed (http://127.0.0.1:8085/data.json)
+#   3. Executable located at: .tools/LibreHardwareMonitor/LibreHardwareMonitor.exe
 #
-# If the LibreHardwareMonitor executable is missing, the app falls back to:
+# If LibreHardwareMonitor is not elevated or unavailable, the app falls back to:
 #   - psutil sensor readings
 #   - Windows WMI / PowerShell thermal sensor queries
-#   - CPU temperature checks exposed by the OS
-#
-# No additional Python package is required for the current implementation.
-# The app uses Windows built-in sensor APIs and the local LHM binary.
+#   - Windows ACPI thermal zones

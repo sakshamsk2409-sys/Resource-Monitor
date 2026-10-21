@@ -1,6 +1,9 @@
 import sys
 import subprocess
 import importlib.util
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def _auto_install_dependencies():
@@ -372,6 +375,7 @@ class MainWindow(QMainWindow):
         # =================================================
         self.logger = TelemetryLogger(
             temperature_provider=self.dashboard_page.get_cpu_temperature,
+            cpu_provider=self.dashboard_page.get_cpu_load,
             parent=self
         )
         self.logger.status_changed.connect(self.on_logger_status_changed)
@@ -540,7 +544,10 @@ class MainWindow(QMainWindow):
 
     def check_resource_alerts(self):
         try:
-            cpu = psutil.cpu_percent(interval=None)
+            if hasattr(self, 'dashboard_page') and hasattr(self.dashboard_page, 'get_cpu_load'):
+                cpu = self.dashboard_page.get_cpu_load()
+            else:
+                cpu = psutil.cpu_percent(interval=None)
             ram = psutil.virtual_memory().percent
 
             if cpu > 85:
