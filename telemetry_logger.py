@@ -158,9 +158,8 @@ COLUMN_METADATA = {
 class TelemetrySampler:
     """Samples hardware metrics and computes valid instantaneous rates."""
 
-    def __init__(self, temperature_provider=None, cpu_provider=None):
+    def __init__(self, temperature_provider=None):
         self.temperature_provider = temperature_provider
-        self.cpu_provider = cpu_provider
 
         # NVML initialization
         self.gpu_available = False
@@ -260,16 +259,9 @@ class TelemetrySampler:
 
         # 1. CPU
         try:
-            if self.cpu_provider and callable(self.cpu_provider):
-                val = self.cpu_provider()
-                cpu_usage = round(float(val), 1) if val is not None else round(float(psutil.cpu_percent(interval=None)), 1)
-            else:
-                cpu_usage = round(float(psutil.cpu_percent(interval=None)), 1)
+            cpu_usage = round(float(psutil.cpu_percent(interval=None)), 1)
         except Exception:
-            try:
-                cpu_usage = round(float(psutil.cpu_percent(interval=None)), 1)
-            except Exception:
-                cpu_usage = None
+            cpu_usage = None
 
         cpu_temp = self._get_cpu_temperature()
 
@@ -417,9 +409,9 @@ class TelemetryLogger(QObject):
     stats_updated = Signal(int, float, str)  # record_count, elapsed_seconds, file_path
     error_occurred = Signal(str)
 
-    def __init__(self, temperature_provider=None, cpu_provider=None, parent=None):
+    def __init__(self, temperature_provider=None, parent=None):
         super().__init__(parent)
-        self.sampler = TelemetrySampler(temperature_provider=temperature_provider, cpu_provider=cpu_provider)
+        self.sampler = TelemetrySampler(temperature_provider=temperature_provider)
 
         self._status = self.STATUS_STOPPED
         self._file = None

@@ -1,8 +1,6 @@
 import time
 import psutil
 
-from hardware_monitor import get_hardware_monitor
-
 from PySide6.QtCore import Qt, QTimer, QPoint
 from PySide6.QtGui import QColor, QFont, QPainter, QBrush, QPen
 from PySide6.QtWidgets import (
@@ -36,7 +34,6 @@ class MiniOverlayWidget(QWidget):
         self.resize(230, 120)
 
         self.drag_position = QPoint()
-        self.hardware_monitor = get_hardware_monitor()
         self.gpu_handle = None
         self.init_gpu()
 
@@ -139,10 +136,7 @@ class MiniOverlayWidget(QWidget):
 
     def update_telemetry(self):
         # CPU
-        if hasattr(self, 'hardware_monitor') and self.hardware_monitor:
-            cpu = self.hardware_monitor.get_cpu_load()
-        else:
-            cpu = psutil.cpu_percent(interval=None)
+        cpu = psutil.cpu_percent(interval=None)
         cpu_color = "#e53935" if cpu > 85 else "#ffffff"
         self.cpu_lbl.setText(f"CPU: {cpu:.0f}%")
         self.cpu_lbl.setStyleSheet(f"color: {cpu_color}; font-size: 11px; font-weight: bold;")
