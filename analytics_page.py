@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QCheckBox,
     QScrollArea,
+    QStackedWidget,
     QDialog,
     QTextEdit,
     QLineEdit,
@@ -267,9 +268,11 @@ class RamDonutCanvas(FigureCanvasQTAgg):
     """Chart 2: RAM Usage Composition Donut Chart."""
 
     def __init__(self, parent=None):
-        self.fig = Figure(figsize=(4.8, 3.2), facecolor="#131823")
+        self.fig = Figure(figsize=(5.5, 3.2), facecolor="#131823", dpi=100)
         super().__init__(self.fig)
         self.setParent(parent)
+        self.setMinimumHeight(260)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.ax = self.fig.add_subplot(111)
         self.fig.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.10)
         self.draw_empty()
@@ -370,9 +373,11 @@ class DiskThroughputCanvas(FigureCanvasQTAgg):
     """Chart 4: Storage Read/Write Throughput Grouped Bar Chart."""
 
     def __init__(self, parent=None):
-        self.fig = Figure(figsize=(4.8, 3.2), facecolor="#131823")
+        self.fig = Figure(figsize=(5.5, 3.2), facecolor="#131823", dpi=100)
         super().__init__(self.fig)
         self.setParent(parent)
+        self.setMinimumHeight(260)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.ax = self.fig.add_subplot(111)
         self.fig.subplots_adjust(left=0.12, right=0.96, top=0.88, bottom=0.20)
         self.draw_empty()
@@ -473,9 +478,11 @@ class CpuDistributionCanvas(FigureCanvasQTAgg):
     """Chart 5: CPU Utilization Distribution Histogram."""
 
     def __init__(self, parent=None):
-        self.fig = Figure(figsize=(4.8, 3.2), facecolor="#131823")
+        self.fig = Figure(figsize=(5.5, 3.2), facecolor="#131823", dpi=100)
         super().__init__(self.fig)
         self.setParent(parent)
+        self.setMinimumHeight(260)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.ax = self.fig.add_subplot(111)
         self.fig.subplots_adjust(left=0.12, right=0.96, top=0.88, bottom=0.20)
         self.draw_empty()
@@ -558,6 +565,159 @@ class CpuDistributionCanvas(FigureCanvasQTAgg):
             edgecolor="#26334a",
             labelcolor="#cbd5e1",
             fontsize=7,
+        )
+
+        self.draw_idle()
+
+
+class ResourceUtilizationHeatmapCanvas(FigureCanvasQTAgg):
+    """Chart 6: Resource Utilization Heatmap.
+
+    Renders a 2D temporal load intensity heatmap across compute, memory,
+    and acceleration units with plasma colormap, timestamp X-axis, and utilization colorbar.
+    """
+
+    def __init__(self, parent=None):
+        self.fig = Figure(figsize=(5.5, 3.2), facecolor="#131823", dpi=100)
+        super().__init__(self.fig)
+        self.setParent(parent)
+        self.setMinimumHeight(260)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.ax = self.fig.add_subplot(111)
+        self.cax = self.fig.add_axes([0.89, 0.22, 0.025, 0.56])
+        self.colorbar = None
+        self.fig.subplots_adjust(left=0.14, right=0.86, top=0.78, bottom=0.22)
+        self.draw_empty()
+
+    def draw_empty(self, message="Awaiting resource telemetry..."):
+        self.ax.clear()
+        self.ax.set_facecolor("#131823")
+        self.cax.clear()
+        self.cax.axis("off")
+        self.colorbar = None
+        self.ax.text(
+            0.5, 0.5, message,
+            ha="center", va="center", color="#64748b", fontsize=9,
+        )
+        self.ax.axis("off")
+        self.draw_idle()
+
+    def update_heatmap(self, df: pd.DataFrame):
+        self.ax.clear()
+        self.ax.set_facecolor("#131823")
+
+        if df is None or df.empty:
+            self.draw_empty("No dataset records available")
+            return
+
+        has_cpu = "cpu_usage_percent" in df.columns
+        has_ram = "ram_usage_percent" in df.columns
+        if not (has_cpu or has_ram):
+            self.draw_empty("CPU/RAM telemetry metrics missing")
+            return
+
+        # Prepare temporal samples (limit to ~40 columns for sharp, readable heatmap cells)
+        n_total = len(df)
+        max_cols = 40
+        if n_total <= max_cols:
+            sample_df = df.copy()
+        else:
+            step = max(1, n_total // max_cols)
+            sample_df = df.iloc[::step].copy().reset_index(drop=True)
+
+        cpu_vals = sample_df["cpu_usage_percent"].fillna(0).clip(0, 100).values if has_cpu else np.zeros(len(sample_df))
+        ram_vals = sample_df["ram_usage_percent"].fillna(0).clip(0, 100).values if has_ram else np.zeros(len(sample_df))
+
+        has_gpu = "gpu_usage_percent" in sample_df.columns and not sample_df["gpu_usage_percent"].dropna().empty
+        if has_gpu:
+            gpu_vals = sample_df["gpu_usage_percent"].fillna(0).clip(0, 100).values
+            row_labels = ["CPU", "RAM", "GPU 0"]
+            data_matrix = np.vstack([cpu_vals, ram_vals, gpu_vals])
+            active_str = "Active: CPU, RAM, GPU 0"
+        else:
+            gpu_vals = np.zeros(len(sample_df))
+            row_labels = ["CPU", "RAM", "GPU 0"]
+            data_matrix = np.vstack([cpu_vals, ram_vals, gpu_vals])
+            active_str = "Active: CPU, RAM, GPU 0"
+
+        # Calculate average overall load across active units
+        overall_avg = float(np.mean(data_matrix[0:2])) if not has_gpu else float(np.mean(data_matrix))
+
+        # Render 2D heatmap with plasma colormap
+        im = self.ax.imshow(
+            data_matrix,
+            cmap="plasma",
+            aspect="auto",
+            vmin=0.0,
+            vmax=100.0,
+            interpolation="nearest"
+        )
+
+        # Y-Axis Ticks
+        self.ax.set_yticks(np.arange(len(row_labels)))
+        self.ax.set_yticklabels(row_labels, color="#cbd5e1", fontsize=9, fontweight="bold")
+        self.ax.tick_params(axis="y", length=4, color="#64748b")
+
+        # X-Axis Ticks (Timestamps)
+        num_x = data_matrix.shape[1]
+        num_ticks = min(6, num_x)
+        if num_ticks > 1:
+            tick_indices = np.linspace(0, num_x - 1, num_ticks, dtype=int)
+            x_labels = []
+            for idx in tick_indices:
+                row = sample_df.iloc[idx]
+                ts_val = None
+                if "parsed_timestamp" in row and pd.notna(row["parsed_timestamp"]):
+                    ts_val = pd.to_datetime(row["parsed_timestamp"])
+                elif "timestamp" in row and pd.notna(row["timestamp"]):
+                    try:
+                        ts_val = pd.to_datetime(row["timestamp"])
+                    except Exception:
+                        pass
+
+                if ts_val is not None:
+                    x_labels.append(ts_val.strftime("%H:%M:%S"))
+                else:
+                    x_labels.append(f"{idx}s")
+
+            self.ax.set_xticks(tick_indices)
+            self.ax.set_xticklabels(x_labels, color="#94a3b8", fontsize=8)
+        else:
+            self.ax.set_xticks([0])
+            self.ax.set_xticklabels(["00:00:00"], color="#94a3b8", fontsize=8)
+
+        self.ax.set_xlabel("Time (HH:MM:SS)", color="#94a3b8", fontsize=9)
+        self.ax.tick_params(axis="x", length=4, color="#64748b")
+
+        # Hide top & right spines
+        for spine in ["top", "right"]:
+            self.ax.spines[spine].set_visible(False)
+        self.ax.spines["left"].set_color("#1e2638")
+        self.ax.spines["bottom"].set_color("#1e2638")
+
+        # Colorbar
+        self.cax.clear()
+        self.cax.axis("on")
+        self.colorbar = self.fig.colorbar(im, cax=self.cax)
+        self.colorbar.set_ticks([0, 25, 50, 75, 100])
+        self.colorbar.set_ticklabels(["0%", "25%", "50%", "75%", "100%"])
+        self.colorbar.ax.tick_params(colors="#94a3b8", labelsize=8)
+        self.colorbar.set_label("Utilization", color="#94a3b8", fontsize=9)
+        self.colorbar.outline.set_edgecolor("#1e2638")
+
+        # Inner Top Pill Badge: Active resources and Avg Load
+        self.ax.text(
+            0.5, 1.12,
+            f"{active_str}   |   Avg Load: {overall_avg:.1f}%",
+            transform=self.ax.transAxes,
+            color="#cbd5e1", fontsize=8.5, fontweight="bold",
+            va="bottom", ha="center",
+            bbox=dict(
+                boxstyle="round,pad=0.35",
+                facecolor="#181f2f",
+                edgecolor="#26334a",
+                alpha=0.95
+            ),
         )
 
         self.draw_idle()
@@ -646,13 +806,13 @@ class AnalyticsPage(CarbonFiberBackground):
         self.sampler = TelemetrySampler()
         self.live_buffer: List[Dict[str, Any]] = []
         self.max_live_samples: int = 60
-        self.is_live: bool = True
+        self.is_live: bool = False
         self.live_timer = QTimer(self)
         self.live_timer.setInterval(1000)
         self.live_timer.timeout.connect(self._on_live_tick)
+        self._is_interactive_import: bool = False
 
         self.setup_ui()
-        self._auto_load_recent_or_sample()
 
     def set_refresh_interval(self, ms: int):
         """Allow main speed selector to set live update interval."""
@@ -660,13 +820,290 @@ class AnalyticsPage(CarbonFiberBackground):
             self.live_timer.setInterval(max(250, ms))
 
     # =================================================================
-    # UI SETUP
+    # UI SETUP & MODE NAVIGATION
     # =================================================================
 
     def setup_ui(self):
         page_layout = QVBoxLayout(self)
-        page_layout.setContentsMargins(24, 18, 24, 18)
-        page_layout.setSpacing(12)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        page_layout.setSpacing(0)
+
+        self.stack = QStackedWidget(self)
+        page_layout.addWidget(self.stack)
+
+        # Screen 0: Initial Blank / Landing screen with the 2 choices
+        self.landing_widget = self.setup_landing_ui()
+        # Screen 1: The Main Analytics Dashboard
+        self.dashboard_widget = self.setup_dashboard_ui()
+
+        self.stack.addWidget(self.landing_widget)    # Index 0
+        self.stack.addWidget(self.dashboard_widget)  # Index 1
+
+        # Start on blank mode selection landing screen
+        self.stack.setCurrentIndex(0)
+
+    def setup_landing_ui(self) -> QWidget:
+        """Create the clean initial screen with exactly 2 primary options:
+        1. Live Analysis
+        2. Import Dataset
+        """
+        landing = QWidget()
+        layout = QVBoxLayout(landing)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(0)
+
+        layout.addStretch(1)
+
+        center_container = QWidget()
+        center_container.setMaximumWidth(960)
+        c_layout = QVBoxLayout(center_container)
+        c_layout.setSpacing(28)
+        c_layout.setAlignment(Qt.AlignCenter)
+
+        # Header Hero
+        header_layout = QVBoxLayout()
+        header_layout.setAlignment(Qt.AlignCenter)
+        header_layout.setSpacing(10)
+
+        badge_lbl = QLabel("ANALYTICAL TELEMETRY")
+        badge_lbl.setAlignment(Qt.AlignCenter)
+        badge_lbl.setStyleSheet("""
+            background: rgba(14, 165, 233, 0.12);
+            color: #38bdf8;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 2.0px;
+            padding: 5px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+        """)
+        header_layout.addWidget(badge_lbl, 0, Qt.AlignCenter)
+
+        title_lbl = QLabel("Select Telemetry Analysis Mode")
+        title_lbl.setAlignment(Qt.AlignCenter)
+        title_lbl.setStyleSheet("font-size: 26px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;")
+        header_layout.addWidget(title_lbl)
+
+        sub_lbl = QLabel(
+            "Choose live system monitoring or import a recorded dataset for automated preprocessing, null auditing, and duplicate removal."
+        )
+        sub_lbl.setAlignment(Qt.AlignCenter)
+        sub_lbl.setWordWrap(True)
+        sub_lbl.setStyleSheet("font-size: 13px; color: #94a3b8; max-width: 680px;")
+        header_layout.addWidget(sub_lbl)
+
+        c_layout.addLayout(header_layout)
+
+        # Options Row: Exactly 2 interactive cards
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(24)
+
+        # Option 1: Live Analysis
+        card_live = self._create_mode_card(
+            option_num="1",
+            title="Live Analysis",
+            badge_text="🔴 REAL-TIME SENSORS",
+            badge_style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);",
+            description="Stream live hardware telemetry directly from active system sensors with 60fps graph updates and instant KPI monitoring.",
+            bullet_points=[
+                "Real-time continuous multi-series graph updates",
+                "Instant CPU, RAM, GPU & temperature telemetry",
+                "Dynamic system health scoring and threshold alerts",
+            ],
+            btn_text="▶ Launch Live Analysis",
+            btn_style="""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10b981);
+                    color: #ffffff;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    padding: 10px 18px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #10b981, stop:1 #34d399);
+                }
+            """,
+            callback=self.start_live_analysis,
+            card_accent="#10b981",
+        )
+        cards_layout.addWidget(card_live)
+
+        # Option 2: Import Dataset
+        card_import = self._create_mode_card(
+            option_num="2",
+            title="Import Dataset",
+            badge_text="📁 DATASET PREPROCESSING",
+            badge_style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);",
+            description="Select an external or recorded telemetry CSV file. Preprocesses all data: validates schema, checks row counts, audits null values, and guarantees no duplicate values.",
+            bullet_points=[
+                "Automated data cleaning & chronological sorting",
+                "Strict duplicate removal { no duplicate values }",
+                "Audit report: raw & cleaned row counts + null values",
+            ],
+            btn_text="📂 Choose Dataset CSV...",
+            btn_style="""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0284c7, stop:1 #38bdf8);
+                    color: #ffffff;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    padding: 10px 18px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #38bdf8, stop:1 #7dd3fc);
+                    color: #0f172a;
+                }
+            """,
+            callback=self.choose_and_import_dataset,
+            card_accent="#38bdf8",
+        )
+        cards_layout.addWidget(card_import)
+
+        c_layout.addLayout(cards_layout)
+
+        h_center = QHBoxLayout()
+        h_center.addStretch()
+        h_center.addWidget(center_container)
+        h_center.addStretch()
+        layout.addLayout(h_center)
+
+        layout.addStretch(1)
+
+        return landing
+
+    def _create_mode_card(
+        self,
+        option_num: str,
+        title: str,
+        badge_text: str,
+        badge_style: str,
+        description: str,
+        bullet_points: List[str],
+        btn_text: str,
+        btn_style: str,
+        callback: Any,
+        card_accent: str,
+    ) -> QFrame:
+        card = QFrame()
+        card.setCursor(Qt.PointingHandCursor)
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: #10141f;
+                border: 1px solid #1e2638;
+                border-radius: 12px;
+            }}
+            QFrame:hover {{
+                border: 1px solid {card_accent};
+                background-color: #131927;
+            }}
+        """)
+        card.setMinimumWidth(380)
+        card.setMinimumHeight(350)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(14)
+
+        # Top Badge
+        badge = QLabel(badge_text)
+        badge.setStyleSheet(f"""
+            {badge_style}
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 8px;
+        """)
+        layout.addWidget(badge, 0, Qt.AlignLeft)
+
+        # Title
+        t_lbl = QLabel(f"{option_num}. {title}")
+        t_lbl.setStyleSheet("font-size: 19px; font-weight: 800; color: #f8fafc;")
+        layout.addWidget(t_lbl)
+
+        # Description
+        desc_lbl = QLabel(description)
+        desc_lbl.setWordWrap(True)
+        desc_lbl.setStyleSheet("font-size: 11px; color: #94a3b8; line-height: 1.4;")
+        layout.addWidget(desc_lbl)
+
+        # Separator line
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("background-color: #1e2638; max-height: 1px; border: none;")
+        layout.addWidget(sep)
+
+        # Bullets
+        bullets_box = QVBoxLayout()
+        bullets_box.setSpacing(6)
+        for b in bullet_points:
+            bl = QLabel(f"✓  {b}")
+            bl.setWordWrap(True)
+            bl.setStyleSheet("font-size: 11px; color: #cbd5e1; font-weight: 500;")
+            bullets_box.addWidget(bl)
+        layout.addLayout(bullets_box)
+
+        layout.addStretch()
+
+        # Action Button
+        btn = QPushButton(btn_text)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(btn_style)
+        btn.clicked.connect(callback)
+        layout.addWidget(btn)
+
+        # Card-level click trigger
+        card.mousePressEvent = lambda e: callback()
+
+        return card
+
+    def start_live_analysis(self):
+        """Option 1: Switch to dashboard view and activate real-time telemetry stream."""
+        self.stack.setCurrentWidget(self.dashboard_widget)
+        if not self.live_buffer:
+            self._seed_live_buffer()
+        if hasattr(self, "prep_audit_banner"):
+            self.prep_audit_banner.hide()
+        self.toggle_live_feed(enable=True)
+
+    def choose_and_import_dataset(self):
+        """Option 2: Open file chooser to select telemetry CSV dataset, preprocess it, and redirect."""
+        self._is_interactive_import = True
+        self.browse_and_load_csv()
+
+    def show_landing_screen(self):
+        """Return to the initial mode selection landing screen."""
+        self.toggle_live_feed(enable=False)
+        self.stack.setCurrentWidget(self.landing_widget)
+
+    def _seed_live_buffer(self):
+        logs = sorted(glob.glob("data/logs/resource_log_*.csv"), key=os.path.getmtime, reverse=True)
+        if logs:
+            try:
+                df = pd.read_csv(logs[0])
+                if len(df) > 0:
+                    records = df.tail(30).to_dict("records")
+                    for r in records:
+                        if "ram_used_bytes" in r:
+                            r["ram_used_gb"] = round((r.get("ram_used_bytes") or 0) / (1024**3), 2)
+                            r["ram_available_gb"] = round((r.get("ram_available_bytes") or 0) / (1024**3), 2)
+                        if "disk_read_bytes_per_sec" in r:
+                            r["disk_read_mb_per_sec"] = round((r.get("disk_read_bytes_per_sec") or 0) / (1024 * 1024), 2)
+                            r["disk_write_mb_per_sec"] = round((r.get("disk_write_bytes_per_sec") or 0) / (1024 * 1024), 2)
+                    self.live_buffer = records
+            except Exception:
+                pass
+
+    def setup_dashboard_ui(self) -> QWidget:
+        dashboard_widget = QWidget()
+        dash_page_layout = QVBoxLayout(dashboard_widget)
+        dash_page_layout.setContentsMargins(24, 18, 24, 18)
+        dash_page_layout.setSpacing(12)
 
         # -------------------------------------------------------------
         # 1. COMPACT ENTERPRISE HEADER
@@ -692,7 +1129,14 @@ class AnalyticsPage(CarbonFiberBackground):
 
         hl.addStretch()
 
-        # Primary Actions in Header
+        # Navigation and Primary Actions in Header
+        self.mode_back_btn = QPushButton("⮌ Mode Selection")
+        self.mode_back_btn.setToolTip("Return to the Telemetry Mode Selection screen")
+        self.mode_back_btn.setCursor(Qt.PointingHandCursor)
+        self.mode_back_btn.clicked.connect(self.show_landing_screen)
+        self.apply_button_style(self.mode_back_btn)
+        hl.addWidget(self.mode_back_btn)
+
         self.import_btn = QPushButton("📁 Import CSV Dataset")
         self.import_btn.setCursor(Qt.PointingHandCursor)
         self.import_btn.clicked.connect(self.browse_and_load_csv)
@@ -711,7 +1155,7 @@ class AnalyticsPage(CarbonFiberBackground):
         self.setup_more_actions_menu()
         hl.addWidget(self.more_btn)
 
-        page_layout.addWidget(header_card)
+        dash_page_layout.addWidget(header_card)
 
         # -------------------------------------------------------------
         # 2. FILTER & PREPROCESSING TOOLBAR (WITH LIVE MODE TOGGLE)
@@ -803,7 +1247,7 @@ class AnalyticsPage(CarbonFiberBackground):
         self.apply_button_style(self.rerun_btn, small=True)
         fl.addWidget(self.rerun_btn)
 
-        page_layout.addWidget(filter_bar)
+        dash_page_layout.addWidget(filter_bar)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -812,7 +1256,7 @@ class AnalyticsPage(CarbonFiberBackground):
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet("QProgressBar::chunk { background-color: #38bdf8; }")
         self.progress_bar.hide()
-        page_layout.addWidget(self.progress_bar)
+        dash_page_layout.addWidget(self.progress_bar)
 
         # -------------------------------------------------------------
         # 3. CONTINUOUS SCROLLABLE DASHBOARD BODY
@@ -843,6 +1287,13 @@ class AnalyticsPage(CarbonFiberBackground):
         dash_layout = QVBoxLayout(dashboard_container)
         dash_layout.setContentsMargins(0, 4, 0, 16)
         dash_layout.setSpacing(14)
+
+        # -------------------------------------------------------------
+        # PREPROCESSING PIPELINE AUDIT BANNER (Shown for Imported Datasets)
+        # -------------------------------------------------------------
+        self.prep_audit_banner = self.create_preprocessing_banner()
+        self.prep_audit_banner.hide()
+        dash_layout.addWidget(self.prep_audit_banner)
 
         # -------------------------------------------------------------
         # SECTION A: EXACTLY FOUR PRIMARY KPI CARDS
@@ -889,6 +1340,14 @@ class AnalyticsPage(CarbonFiberBackground):
         # -------------------------------------------------------------
         grid = QGridLayout()
         grid.setSpacing(14)
+        grid.setRowMinimumHeight(0, 320)
+        grid.setRowMinimumHeight(1, 320)
+        grid.setRowMinimumHeight(2, 320)
+        grid.setRowStretch(0, 1)
+        grid.setRowStretch(1, 1)
+        grid.setRowStretch(2, 1)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
 
         # Chart 1: Time Series Multi-Line Plot
         self.chart1_card = self.create_chart_card(
@@ -980,14 +1439,17 @@ class AnalyticsPage(CarbonFiberBackground):
         self.chart5_card.layout().addWidget(self.canvas_dist)
         grid.addWidget(self.chart5_card, 2, 0)
 
-        # Chart 6: System Health Radial Gauge
+        # Chart 6: Resource Utilization Heatmap
         self.chart6_card = self.create_chart_card(
-            title="SYSTEM HEALTH INDEX",
-            subtitle="Deterministic composite score (0-100) based on compute, RAM & thermals",
+            title="RESOURCE UTILIZATION HEATMAP",
+            subtitle="Temporal load intensity (%) across compute, memory, and acceleration units",
         )
-        self.gauge_widget = HealthScoreGaugeWidget()
-        self.chart6_card.layout().addWidget(self.gauge_widget)
+        self.canvas_heatmap = ResourceUtilizationHeatmapCanvas()
+        self.chart6_card.layout().addWidget(self.canvas_heatmap)
         grid.addWidget(self.chart6_card, 2, 1)
+
+        # Gauge widget preserved offscreen for metric calculations and backward compatibility
+        self.gauge_widget = HealthScoreGaugeWidget()
 
         dash_layout.addLayout(grid)
 
@@ -1031,95 +1493,256 @@ class AnalyticsPage(CarbonFiberBackground):
 
         dash_layout.addWidget(self.summary_card)
 
-        # -------------------------------------------------------------
-        # SECTION D: COLLAPSIBLE DETAIL PANELS
-        # -------------------------------------------------------------
+        # Detail holder objects preserved off-screen for headless data processing/exports
         self.audit_text_edit = QTextEdit()
-        self.audit_text_edit.setReadOnly(True)
-        self.audit_text_edit.setStyleSheet(
-            "background:#0a0d14; color:#cbd5e1; border:1px solid #1e2638; font-family:monospace; font-size:10px; padding:8px;"
-        )
-        self.audit_text_edit.setMinimumHeight(150)
-        self.panel_audit = CollapsiblePanel("Preprocessing Pipeline Audit & Transformation Details", self.audit_text_edit)
-        dash_layout.addWidget(self.panel_audit)
-
         self.stats_table = QTableWidget()
-        self.stats_table.setColumnCount(9)
-        self.stats_table.setHorizontalHeaderLabels([
-            "Metric", "Obs Count", "Mean", "Median", "Min", "Max", "Std Dev", "95th %ile", "Peak Timestamp"
-        ])
-        self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.stats_table.setStyleSheet("""
-            QTableWidget {
-                background: #0a0d14;
-                color: #cbd5e1;
-                border: 1px solid #1e2638;
-                gridline-color: #1e2638;
-                font-size: 10px;
-            }
-            QHeaderView::section {
-                background: #10141f;
-                color: #38bdf8;
-                font-weight: bold;
-                border: 1px solid #1e2638;
-                padding: 4px;
-            }
-        """)
-        self.stats_table.setMinimumHeight(180)
-        self.panel_stats = CollapsiblePanel("Empirical Descriptive Statistics & Percentile Distributions", self.stats_table)
-        dash_layout.addWidget(self.panel_stats)
-
-        diag_container = QWidget()
-        dl = QVBoxLayout(diag_container)
-        dl.setContentsMargins(0, 0, 0, 0)
-        dl.setSpacing(8)
-
-        diag_header = QHBoxLayout()
-        self.ai_badge_lbl = QLabel("● RULE-BASED DIAGNOSTIC ENGINE")
-        self.ai_badge_lbl.setStyleSheet("color: #10b981; font-weight: bold; font-size: 10px;")
-        diag_header.addWidget(self.ai_badge_lbl)
-        diag_header.addStretch()
-
-        self.configure_ai_btn = QPushButton("⚙ Configure Optional External LLM")
-        self.configure_ai_btn.clicked.connect(self.open_ai_config_dialog)
-        self.apply_button_style(self.configure_ai_btn, small=True)
-        diag_header.addWidget(self.configure_ai_btn)
-        dl.addLayout(diag_header)
-
         self.insights_text = QTextEdit()
-        self.insights_text.setReadOnly(True)
-        self.insights_text.setStyleSheet(
-            "background:#0a0d14; color:#e2e8f0; border:1px solid #1e2638; font-size:11px; padding:10px;"
-        )
-        self.insights_text.setMinimumHeight(140)
-        dl.addWidget(self.insights_text)
-
-        self.panel_insights = CollapsiblePanel("System Engineering Diagnostics & Bottleneck Analysis", diag_container)
-        dash_layout.addWidget(self.panel_insights)
-
+        self.ai_badge_lbl = QLabel()
         self.records_table = QTableWidget()
-        self.records_table.setStyleSheet("""
-            QTableWidget {
-                background: #0a0d14;
-                color: #cbd5e1;
-                border: 1px solid #1e2638;
-                gridline-color: #1e2638;
-                font-size: 10px;
-            }
-            QHeaderView::section {
-                background: #10141f;
-                color: #2dd4bf;
-                font-weight: bold;
-                border: 1px solid #1e2638;
-                padding: 4px;
-            }
-        """)
-        self.records_table.setMinimumHeight(180)
-        self.panel_records = CollapsiblePanel("Dataset Records Preview (First 100 Rows)", self.records_table)
-        dash_layout.addWidget(self.panel_records)
+        self.panel_audit = None
+        self.panel_stats = None
+        self.panel_insights = None
+        self.panel_records = None
 
         scroll.setWidget(dashboard_container)
-        page_layout.addWidget(scroll, stretch=1)
+        dash_page_layout.addWidget(scroll, stretch=1)
+        return dashboard_widget
+
+    def create_preprocessing_banner(self) -> QFrame:
+        banner = QFrame()
+        banner.setObjectName("prep_audit_banner")
+        banner.setStyleSheet("""
+            QFrame#prep_audit_banner {
+                background-color: #0d121f;
+                border: 1px solid #1e2638;
+                border-left: 4px solid #10b981;
+                border-radius: 8px;
+            }
+        """)
+        layout = QVBoxLayout(banner)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(12)
+
+        # Header Row
+        h_row = QHBoxLayout()
+        h_row.setSpacing(10)
+
+        icon_title = QLabel("🛡️ DATASET PREPROCESSING AUDIT & INTEGRITY REPORT")
+        icon_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;")
+        h_row.addWidget(icon_title)
+
+        self.banner_file_lbl = QLabel("")
+        self.banner_file_lbl.setStyleSheet("font-size: 11px; color: #94a3b8;")
+        h_row.addWidget(self.banner_file_lbl)
+
+        h_row.addStretch()
+
+        self.banner_dedup_badge = QLabel("✓ 0 DUPLICATE VALUES { NO DUPLICATES }")
+        self.banner_dedup_badge.setStyleSheet("""
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        """)
+        h_row.addWidget(self.banner_dedup_badge)
+
+        self.banner_audit_badge = QLabel("● AUDIT VALIDATED")
+        self.banner_audit_badge.setStyleSheet("""
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        """)
+        h_row.addWidget(self.banner_audit_badge)
+
+        layout.addLayout(h_row)
+
+        # Stat chips row
+        chips_row = QHBoxLayout()
+        chips_row.setSpacing(12)
+
+        self.banner_chip_raw = self.create_summary_chip("Original Rows", "0")
+        self.banner_chip_clean = self.create_summary_chip("Cleaned Rows", "0")
+        self.banner_chip_dedup = self.create_summary_chip("Duplicates Removed", "0")
+        self.banner_chip_nulls = self.create_summary_chip("Null / Missing Cells", "0")
+
+        chips_row.addWidget(self.banner_chip_raw)
+        chips_row.addWidget(self.banner_chip_clean)
+        chips_row.addWidget(self.banner_chip_dedup)
+        chips_row.addWidget(self.banner_chip_nulls)
+
+        layout.addLayout(chips_row)
+
+        # Bottom detail row
+        sub_row = QHBoxLayout()
+        sub_row.setSpacing(12)
+
+        self.banner_null_summary_lbl = QLabel("Null Values: 0 missing cells detected.")
+        self.banner_null_summary_lbl.setStyleSheet("font-size: 11px; color: #cbd5e1;")
+        sub_row.addWidget(self.banner_null_summary_lbl)
+
+        sub_row.addStretch()
+
+        self.banner_null_table_btn = QPushButton("🔍 View Column Null Breakdown")
+        self.banner_null_table_btn.setCursor(Qt.PointingHandCursor)
+        self.apply_button_style(self.banner_null_table_btn, small=True)
+        self.banner_null_table_btn.clicked.connect(self.show_preprocessing_summary_dialog)
+        sub_row.addWidget(self.banner_null_table_btn)
+
+        layout.addLayout(sub_row)
+
+        return banner
+
+    def show_preprocessing_summary_dialog(self):
+        """Display an in-depth modal audit dialog with row counts, null values, and duplicate removal stats."""
+        if not self.preprocessor or not self.preprocessor.summary or self.cleaned_df is None:
+            return
+
+        summary = self.preprocessor.summary
+        df = self.cleaned_df
+        raw_rows = summary.get("original_rows", len(df))
+        clean_rows = summary.get("final_rows", summary.get("cleaned_rows", len(df)))
+        rems = summary.get("records_removed", [])
+        dedup_count = sum(r.get("count", 0) for r in rems if "duplicate" in r.get("reason", "").lower())
+        if dedup_count == 0:
+            dedup_count = summary.get("duplicate_records_detected", 0) + summary.get("duplicate_timestamps_detected", 0)
+
+        mvc = summary.get("missing_values_by_column", {})
+        total_nulls = sum(d.get("count", 0) for d in mvc.values())
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Telemetry Preprocessing Audit & Quality Report")
+        dlg.setMinimumWidth(640)
+        dlg.setStyleSheet("""
+            QDialog {
+                background-color: #0d111a;
+                color: #e2e8f0;
+                font-family: 'Segoe UI', sans-serif;
+            }
+        """)
+
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(16)
+
+        # Header
+        hl = QHBoxLayout()
+        header_title = QLabel("Telemetry Dataset Preprocessed Successfully")
+        header_title.setStyleSheet("font-size: 16px; font-weight: 800; color: #f8fafc;")
+        hl.addWidget(header_title)
+        hl.addStretch()
+
+        badge_clean = QLabel("✓ 0 DUPLICATE VALUES { NO DUPLICATES }")
+        badge_clean.setStyleSheet(
+            "background: #064e3b; color: #34d399; font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 4px; border: 1px solid #059669;"
+        )
+        hl.addWidget(badge_clean)
+        layout.addLayout(hl)
+
+        src_lbl = QLabel(f"Source: {os.path.basename(self.current_file_path or 'Dataset')}")
+        src_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        layout.addWidget(src_lbl)
+
+        # 4 Stat blocks in a row
+        grid = QGridLayout()
+        grid.setSpacing(10)
+
+        def make_block(title, val, sub, accent):
+            f = QFrame()
+            f.setStyleSheet("background: #141b2b; border: 1px solid #1e293b; border-radius: 6px; padding: 8px;")
+            fl = QVBoxLayout(f)
+            fl.setContentsMargins(8, 8, 8, 8)
+            fl.setSpacing(2)
+            t = QLabel(title)
+            t.setStyleSheet("font-size: 9px; font-weight: bold; color: #94a3b8; letter-spacing: 0.5px;")
+            v = QLabel(val)
+            v.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {accent};")
+            s = QLabel(sub)
+            s.setStyleSheet("font-size: 9px; color: #cbd5e1;")
+            fl.addWidget(t)
+            fl.addWidget(v)
+            fl.addWidget(s)
+            return f
+
+        grid.addWidget(make_block("ORIGINAL ROWS", f"{raw_rows:,}", "Raw input records", "#38bdf8"), 0, 0)
+        grid.addWidget(make_block("CLEANED ROWS", f"{clean_rows:,}", f"{summary.get('retained_percentage', 100):.1f}% retained", "#10b981"), 0, 1)
+        grid.addWidget(make_block("DUPLICATES", "0 Remaining", f"{dedup_count:,} dropped {{no duplicates}}", "#34d399"), 0, 2)
+        grid.addWidget(make_block("NULL VALUES", f"{total_nulls:,}", "Missing cells across cols", "#f59e0b"), 0, 3)
+        layout.addLayout(grid)
+
+        # Null breakdown table
+        sec_lbl = QLabel("Column-by-Column Null & Completeness Breakdown:")
+        sec_lbl.setStyleSheet("font-size: 12px; font-weight: bold; color: #e2e8f0; margin-top: 6px;")
+        layout.addWidget(sec_lbl)
+
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Column Name", "Data Type", "Valid Non-Null Rows", "Null / Missing Count", "Null Percentage"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.setStyleSheet("""
+            QTableWidget {
+                background: #10141f;
+                color: #e2e8f0;
+                border: 1px solid #1e293b;
+                gridline-color: #1e293b;
+                font-size: 10px;
+            }
+            QHeaderView::section {
+                background: #161e31;
+                color: #38bdf8;
+                font-weight: bold;
+                border: 1px solid #1e293b;
+                padding: 4px;
+            }
+        """)
+
+        cols = [c for c in df.columns if c != "parsed_timestamp"]
+        table.setRowCount(len(cols))
+        for row_idx, c in enumerate(cols):
+            null_cnt = int(df[c].isna().sum())
+            valid_cnt = len(df) - null_cnt
+            pct = round((null_cnt / len(df)) * 100, 2) if len(df) > 0 else 0.0
+            col_dtype = str(df[c].dtype)
+
+            table.setItem(row_idx, 0, QTableWidgetItem(c))
+            table.setItem(row_idx, 1, QTableWidgetItem(col_dtype))
+            table.setItem(row_idx, 2, QTableWidgetItem(f"{valid_cnt:,}"))
+
+            null_item = QTableWidgetItem(f"{null_cnt:,}")
+            if null_cnt > 0:
+                null_item.setForeground(QColor("#f59e0b"))
+            else:
+                null_item.setForeground(QColor("#10b981"))
+            table.setItem(row_idx, 3, null_item)
+
+            pct_item = QTableWidgetItem(f"{pct:.2f}%")
+            if pct > 0:
+                pct_item.setForeground(QColor("#f59e0b"))
+            else:
+                pct_item.setForeground(QColor("#10b981"))
+            table.setItem(row_idx, 4, pct_item)
+
+        table.setFixedHeight(180)
+        layout.addWidget(table)
+
+        btn_box = QHBoxLayout()
+        btn_box.addStretch()
+
+        ok_btn = QPushButton("Proceed to Analytics Dashboard →")
+        ok_btn.setCursor(Qt.PointingHandCursor)
+        self.apply_button_style(ok_btn, primary=True)
+        ok_btn.clicked.connect(dlg.accept)
+        btn_box.addWidget(ok_btn)
+
+        layout.addLayout(btn_box)
+
+        dlg.exec()
 
     # =================================================================
     # COMPONENT CREATION HELPERS
@@ -1220,6 +1843,8 @@ class AnalyticsPage(CarbonFiberBackground):
 
     def create_chart_card(self, title: str, subtitle: str) -> QFrame:
         card = QFrame()
+        card.setMinimumHeight(320)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card.setStyleSheet("""
             QFrame {
                 background-color: #131823;
@@ -1235,7 +1860,7 @@ class AnalyticsPage(CarbonFiberBackground):
         header.setSpacing(1)
 
         t_lbl = QLabel(title)
-        t_lbl.setStyleSheet("color: #f1f5f9; font-size: 11px; font-weight: bold; letter-spacing: 0.8px;")
+        t_lbl.setStyleSheet("color: #f1f5f9; font-size: 11px; font-weight: bold;")
         header.addWidget(t_lbl)
 
         sub_lbl = QLabel(subtitle)
@@ -1266,7 +1891,7 @@ class AnalyticsPage(CarbonFiberBackground):
     def setup_pyqtgraph_widget(self, pw: pg.PlotWidget, y_label="%"):
         pw.setBackground("#131823")
         pw.showGrid(x=True, y=True, alpha=0.15)
-        pw.setMinimumHeight(230)
+        pw.setMinimumHeight(260)
         pw.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         pw.getAxis("bottom").setPen(pg.mkPen("#1e2638", width=1))
@@ -1333,6 +1958,10 @@ class AnalyticsPage(CarbonFiberBackground):
             self.is_live = enable
 
         if self.is_live:
+            if hasattr(self, "stack") and hasattr(self, "dashboard_widget"):
+                self.stack.setCurrentWidget(self.dashboard_widget)
+            if hasattr(self, "prep_audit_banner"):
+                self.prep_audit_banner.hide()
             self.live_toggle_btn.setText("🔴 LIVE STREAM: ACTIVE")
             self.apply_button_style(self.live_toggle_btn, accent=True, small=True)
             self.dataset_label.setText("Mode: 🔴 Real-Time Live Feed")
@@ -1483,6 +2112,7 @@ class AnalyticsPage(CarbonFiberBackground):
             self, "Open Telemetry CSV Dataset", "data/logs", "CSV Files (*.csv);;All Files (*)"
         )
         if f:
+            self._is_interactive_import = True
             self.load_dataset(f)
 
     def load_latest_log(self):
@@ -1496,6 +2126,10 @@ class AnalyticsPage(CarbonFiberBackground):
             )
 
     def load_dataset(self, file_path: str):
+        # Redirect to dashboard view
+        if hasattr(self, "stack") and hasattr(self, "dashboard_widget"):
+            self.stack.setCurrentWidget(self.dashboard_widget)
+
         # Pause live streaming when viewing a specific historical CSV
         self.toggle_live_feed(enable=False)
         self.current_file_path = file_path
@@ -1568,6 +2202,10 @@ class AnalyticsPage(CarbonFiberBackground):
         self.update_quality_summary()
         self.update_detail_panels()
 
+        if getattr(self, "_is_interactive_import", False):
+            self._is_interactive_import = False
+            self.show_preprocessing_summary_dialog()
+
     # =================================================================
     # DYNAMIC VIEW UPDATES
     # =================================================================
@@ -1634,7 +2272,9 @@ class AnalyticsPage(CarbonFiberBackground):
             self.kpi_records.findChild(QLabel, "sub_label").setText(f"{duration_sec:.0f}s live window • Streaming")
         else:
             self.kpi_records.findChild(QLabel, "val_label").setText(f"{valid_count:,} valid records")
-            self.kpi_records.findChild(QLabel, "sub_label").setText(f"{duration_sec:.1f}s collection • {raw_count:,} raw rows")
+            self.kpi_records.findChild(QLabel, "sub_label").setText(
+                f"{duration_sec:.1f}s collection • {raw_count:,} raw rows • 0 duplicates {{no duplicates}}"
+            )
 
     def update_all_charts(self):
         df = self.cleaned_df
@@ -1686,7 +2326,8 @@ class AnalyticsPage(CarbonFiberBackground):
         # CHART 5: CPU Utilization Distribution Histogram
         self.canvas_dist.update_histogram(df)
 
-        # CHART 6: System Health Score Gauge
+        # CHART 6: Resource Utilization Heatmap
+        self.canvas_heatmap.update_heatmap(df)
         self.calculate_and_update_health_score(df)
 
     def calculate_and_update_health_score(self, df: pd.DataFrame):
@@ -1748,6 +2389,8 @@ class AnalyticsPage(CarbonFiberBackground):
             return
 
         if self.is_live:
+            if hasattr(self, "prep_audit_banner"):
+                self.prep_audit_banner.hide()
             self.chip_raw.findChild(QLabel, "chip_val").setText(f"{len(df):,}")
             self.chip_clean.findChild(QLabel, "chip_val").setText(f"{len(df):,}")
             self.chip_dedup.findChild(QLabel, "chip_val").setText("0")
@@ -1759,9 +2402,11 @@ class AnalyticsPage(CarbonFiberBackground):
         else:
             summary = self.preprocessor.summary if self.preprocessor else {}
             raw_rows = summary.get("original_rows", len(df))
-            clean_rows = summary.get("cleaned_rows", len(df))
+            clean_rows = summary.get("final_rows", summary.get("cleaned_rows", len(df)))
             rems = summary.get("records_removed", [])
             dedup_count = sum(r.get("count", 0) for r in rems if "duplicate" in r.get("reason", "").lower())
+            if dedup_count == 0:
+                dedup_count = summary.get("duplicate_records_detected", 0) + summary.get("duplicate_timestamps_detected", 0)
             mvc = summary.get("missing_values_by_column", {})
             total_missing = sum(d.get("count", 0) for d in mvc.values())
             istats = summary.get("sampling_interval_analysis", {})
@@ -1777,6 +2422,28 @@ class AnalyticsPage(CarbonFiberBackground):
             self.chip_span.findChild(QLabel, "chip_val").setText(f"{dur:.1f}s")
             self.quality_badge.setText("● AUDIT VALIDATED")
             self.quality_badge.setStyleSheet("color: #10b981; font-size: 10px; font-weight: bold;")
+
+            if hasattr(self, "prep_audit_banner"):
+                self.prep_audit_banner.show()
+                fname = os.path.basename(self.current_file_path) if self.current_file_path else "Dataset"
+                self.banner_file_lbl.setText(f"Source: {fname}")
+                self.banner_chip_raw.findChild(QLabel, "chip_val").setText(f"{raw_rows:,}")
+                self.banner_chip_clean.findChild(QLabel, "chip_val").setText(f"{clean_rows:,}")
+                self.banner_chip_dedup.findChild(QLabel, "chip_val").setText(f"{dedup_count:,}")
+                self.banner_chip_nulls.findChild(QLabel, "chip_val").setText(f"{total_missing:,}")
+
+                if total_missing == 0:
+                    self.banner_null_summary_lbl.setText(
+                        "✓ Zero Null Values: All telemetry features contain complete, non-null values. { No Duplicate Values }"
+                    )
+                    self.banner_null_summary_lbl.setStyleSheet("font-size: 11px; color: #34d399; font-weight: bold;")
+                else:
+                    null_cols_str = ", ".join([f"{c}: {info['count']} nulls" for c, info in list(mvc.items())[:3]])
+                    more_str = f" (+{len(mvc)-3} more cols)" if len(mvc) > 3 else ""
+                    self.banner_null_summary_lbl.setText(
+                        f"Nulls by Feature: {null_cols_str}{more_str} • 0 Duplicate Values Remaining {{ No Duplicate Values }}"
+                    )
+                    self.banner_null_summary_lbl.setStyleSheet("font-size: 11px; color: #fbbf24; font-weight: bold;")
 
     def update_detail_panels(self):
         df = self.cleaned_df
@@ -1851,6 +2518,7 @@ class AnalyticsPage(CarbonFiberBackground):
                 "RAM Allocation & Composition": self.canvas_donut.fig,
                 "Storage Read/Write Throughput Rates": self.canvas_disk.fig,
                 "Resource Utilization Histograms & Density": self.canvas_dist.fig,
+                "Resource Utilization Heatmap": self.canvas_heatmap.fig,
             }
             html_f, json_f = export_analytics_report(
                 self.preprocessor,

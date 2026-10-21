@@ -124,7 +124,31 @@ class TelemetryPreprocessor:
         # -------------------------------------------------------------
         # 1. TIMESTAMP PARSING & SORTING
         # -------------------------------------------------------------
-        df["parsed_timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        try:
+            parsed_ts = pd.to_datetime(df["timestamp"], errors="coerce", format="mixed")
+        except Exception:
+            parsed_ts = pd.to_datetime(df["timestamp"], errors="coerce")
+
+        # Handle elapsed / stopwatch telemetry timestamps (e.g. "53:41.5", "00:00.6")
+        if parsed_ts.isna().sum() > 0:
+            ts_str = df["timestamp"].astype(str).str.strip()
+            # Check if values match MM:SS or MM:SS.s pattern
+            is_elapsed = ts_str.str.match(r"^\d{1,3}:\d{2}(\.\d+)?$")
+            if is_elapsed.all() or (is_elapsed.sum() / max(1, len(df))) > 0.8:
+                try:
+                    td = pd.to_timedelta("00:" + ts_str)
+                    sec = td.dt.total_seconds().values
+                    diffs = np.diff(sec, prepend=sec[0])
+                    # Detect rollover across hour mark (drop > 1800s, e.g. 59m:59s -> 00m:00s)
+                    rollovers = np.cumsum(diffs < -1800)
+                    total_sec = sec + rollovers * 3600
+                    base_date = pd.Timestamp.now().floor("D")
+                    parsed_ts = pd.Series(base_date + pd.to_timedelta(total_sec, unit="s"), index=df.index)
+                    transformations.append("Reconstructed continuous chronological timeline from elapsed stopwatch timestamps (MM:SS.s)")
+                except Exception:
+                    pass
+
+        df["parsed_timestamp"] = parsed_ts
         bad_ts_count = int(df["parsed_timestamp"].isna().sum())
         if bad_ts_count > 0:
             invalid_readings["unparseable_timestamps"] = bad_ts_count

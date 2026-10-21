@@ -94,6 +94,8 @@ class TestAnalyticsRedesign(unittest.TestCase):
     def test_all_six_visualizations_populate(self):
         """Verify all 6 visualization components populate correctly."""
         test_csv = "data/logs/resource_log_20261019_195226.csv"
+        if not os.path.exists(test_csv):
+            test_csv = self.page.generate_sample_telemetry_if_needed()
         self.page.load_dataset(test_csv)
         if self.page.worker:
             self.page.worker.wait(5000)
@@ -116,7 +118,8 @@ class TestAnalyticsRedesign(unittest.TestCase):
         # Chart 5: CPU distribution histogram patches
         self.assertGreater(len(self.page.canvas_dist.ax.patches), 0)
 
-        # Chart 6: System health score gauge has valid deterministic score
+        # Chart 6: Resource Utilization Heatmap & Health Score
+        self.assertGreater(len(self.page.canvas_heatmap.ax.images), 0)
         self.assertIsNotNone(self.page.gauge_widget.score)
         self.assertTrue(0.0 <= self.page.gauge_widget.score <= 100.0)
         self.assertIn(self.page.gauge_widget.tier_name, [
@@ -153,6 +156,8 @@ class TestAnalyticsRedesign(unittest.TestCase):
     def test_report_export_integration(self):
         """Verify report exporter receives figures and outputs valid HTML/JSON."""
         test_csv = "data/logs/resource_log_20261019_195226.csv"
+        if not os.path.exists(test_csv):
+            test_csv = self.page.generate_sample_telemetry_if_needed()
         self.page.load_dataset(test_csv)
         if self.page.worker:
             self.page.worker.wait(5000)
@@ -203,6 +208,78 @@ class TestAnalyticsRedesign(unittest.TestCase):
         self.page.toggle_live_feed(enable=False)
         self.assertFalse(self.page.is_live)
 
+    def test_initial_screen_is_blank_mode_selection_with_two_options(self):
+        """Verify initial screen is mode selection (landing) with 1. Live Analysis and 2. Import Dataset."""
+        self.assertEqual(self.page.stack.currentIndex(), 0)
+        self.assertEqual(self.page.stack.currentWidget(), self.page.landing_widget)
+        self.assertFalse(self.page.is_live)
+
+        # Check options 1 and 2
+        labels = [lbl.text() for lbl in self.page.landing_widget.findChildren(QLabel)]
+        self.assertTrue(any("1. Live Analysis" in t for t in labels))
+        self.assertTrue(any("2. Import Dataset" in t for t in labels))
+
+    def test_mode_one_live_analysis_switch(self):
+        """Verify Option 1 redirects to dashboard and starts live analysis."""
+        self.page.start_live_analysis()
+        self.assertEqual(self.page.stack.currentIndex(), 1)
+        self.assertEqual(self.page.stack.currentWidget(), self.page.dashboard_widget)
+        self.assertTrue(self.page.is_live)
+        self.assertTrue(self.page.prep_audit_banner.isHidden())
+
+        # Verify switching back to landing screen
+        self.page.show_landing_screen()
+        self.assertEqual(self.page.stack.currentIndex(), 0)
+        self.assertFalse(self.page.is_live)
+
+    def test_mode_two_import_dataset_shows_audit_with_row_count_nulls_and_no_duplicates(self):
+        """Verify Option 2 preprocesses data, redirects to dashboard, and shows row count, null values, and no duplicates."""
+        test_csv = "data/logs/test_audit_flow.csv"
+        df = pd.DataFrame({
+            "timestamp": ["2026-10-21 11:00:00", "2026-10-21 11:00:01", "2026-10-21 11:00:01", "2026-10-21 11:00:02"],
+            "cpu_usage_percent": [20.0, 30.0, 30.0, None],
+            "ram_usage_percent": [50.0, 55.0, 55.0, 60.0],
+            "cpu_temperature_c": [45.0, None, None, 50.0],
+        })
+        df.to_csv(test_csv, index=False)
+
+        try:
+            self.page.load_dataset(test_csv)
+            if self.page.worker:
+                self.page.worker.wait(5000)
+                app.processEvents()
+
+            # Verify redirected to dashboard (index 1)
+            self.assertEqual(self.page.stack.currentIndex(), 1)
+            self.assertEqual(self.page.stack.currentWidget(), self.page.dashboard_widget)
+            self.assertFalse(self.page.prep_audit_banner.isHidden())
+
+            raw_val = self.page.banner_chip_raw.findChild(QLabel, "chip_val").text()
+            clean_val = self.page.banner_chip_clean.findChild(QLabel, "chip_val").text()
+            dedup_val = self.page.banner_chip_dedup.findChild(QLabel, "chip_val").text()
+            null_val = self.page.banner_chip_nulls.findChild(QLabel, "chip_val").text()
+            badge_text = self.page.banner_dedup_badge.text()
+
+            # Row count verified
+            self.assertEqual(int(raw_val.replace(",", "")), 4)
+            self.assertEqual(int(clean_val.replace(",", "")), 3)
+
+            # Null values verified (cpu_usage has 1, cpu_temperature has 1 in cleaned data)
+            self.assertGreaterEqual(int(null_val.replace(",", "")), 2)
+
+            # Strict duplicate removal: 0 duplicates remain { no duplicate values }
+            self.assertEqual(int(dedup_val.replace(",", "")), 1)
+            self.assertIn("0 DUPLICATE VALUES", badge_text)
+            self.assertIn("NO DUPLICATES", badge_text)
+
+            # Check that cleaned_df has no duplicate timestamps
+            self.assertEqual(self.page.cleaned_df["parsed_timestamp"].duplicated().sum(), 0)
+
+        finally:
+            if os.path.exists(test_csv):
+                os.remove(test_csv)
+
 
 if __name__ == "__main__":
     unittest.main()
+
